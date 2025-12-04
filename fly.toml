@@ -1,13 +1,12 @@
-app = "tiktok-bot-telegram"
-primary_region = "ams"
+app = "tiktok-bot"
+primary_region = "fra"
 
 [build]
 
-[env]
-  PORT = "8080"
+[processes]
+  app = "python bot.py"
 
-[[services]]
-  internal_port = 8080
-  protocol = "tcp"
-  auto_stop_machines = false
-  auto_start_machines = true
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
+  
