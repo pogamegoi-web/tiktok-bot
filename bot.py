@@ -6,19 +6,18 @@ import re
 import subprocess
 import glob
 import json
+import requests
 
 BOT_TOKEN = "8347415373:AAE86SZs9sHvHXIiNPv5h_1tPZf6hmLYGjI"
 ADMIN_ID = 6272691860
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# Хранилище языков пользователей
 user_languages = {}
 
-# Тексты на разных языках
 texts = {
     'ru': {
-        'start': '👋 Привет! Я бот для скачивания видео.\n\n📱 Поддерживаю: TikTok, Instagram, YouTube\n\n✨ Просто отправь мне ссылку и я скачаю видео без водяного знака!',
+        'start': '👋 Привет! Я бот для скачивания видео и фото.\n\n📱 Поддерживаю:\n• TikTok\n• Instagram\n• YouTube\n• Facebook\n• Likee\n• Pinterest\n• Snapchat\n\n✨ Просто отправь мне ссылку!',
         'choose_lang': '🌍 Выберите язык:',
         'lang_set': '✅ Язык изменён на Русский',
         'downloading': '⏳',
@@ -28,7 +27,7 @@ texts = {
         'photo_caption': 'Скачано с @tiktok27_bot 📷'
     },
     'en': {
-        'start': '👋 Hello! I am a video download bot.\n\n📱 Supported: TikTok, Instagram, YouTube\n\n✨ Just send me a link and I will download the video without watermark!',
+        'start': '👋 Hello! I download videos and photos.\n\n📱 Supported:\n• TikTok\n• Instagram\n• YouTube\n• Facebook\n• Likee\n• Pinterest\n• Snapchat\n\n✨ Just send me a link!',
         'choose_lang': '🌍 Choose language:',
         'lang_set': '✅ Language changed to English',
         'downloading': '⏳',
@@ -38,7 +37,7 @@ texts = {
         'photo_caption': 'Downloaded with @tiktok27_bot 📷'
     },
     'kz': {
-        'start': '👋 Сәлем! Мен бейне жүктеу ботымын.\n\n📱 Қолдау: TikTok, Instagram, YouTube\n\n✨ Маған сілтеме жіберіңіз, мен бейнені су белгісінсіз жүктеймін!',
+        'start': '👋 Сәлем! Мен бейне мен фото жүктеймін.\n\n📱 Қолдау:\n• TikTok\n• Instagram\n• YouTube\n• Facebook\n• Likee\n• Pinterest\n• Snapchat\n\n✨ Маған сілтеме жіберіңіз!',
         'choose_lang': '🌍 Тілді таңдаңыз:',
         'lang_set': '✅ Тіл Қазақшаға өзгертілді',
         'downloading': '⏳',
@@ -48,7 +47,7 @@ texts = {
         'photo_caption': '@tiktok27_bot арқылы жүктелді 📷'
     },
     'ua': {
-        'start': '👋 Привіт! Я бот для завантаження відео.\n\n📱 Підтримую: TikTok, Instagram, YouTube\n\n✨ Просто надішліть мені посилання і я завантажу відео без водяного знаку!',
+        'start': '👋 Привіт! Я завантажую відео та фото.\n\n📱 Підтримую:\n• TikTok\n• Instagram\n• YouTube\n• Facebook\n• Likee\n• Pinterest\n• Snapchat\n\n✨ Просто надішліть мені посилання!',
         'choose_lang': '🌍 Оберіть мову:',
         'lang_set': '✅ Мову змінено на Українську',
         'downloading': '⏳',
@@ -58,7 +57,7 @@ texts = {
         'photo_caption': 'Завантажено з @tiktok27_bot 📷'
     },
     'uz': {
-        'start': '👋 Salom! Men video yuklovchi botman.\n\n📱 Qo\'llab-quvvatlayman: TikTok, Instagram, YouTube\n\n✨ Menga havola yuboring va men videoni suv belgisisiz yuklab beraman!',
+        'start': '👋 Salom! Men video va foto yuklayman.\n\n📱 Qo\'llab-quvvatlayman:\n• TikTok\n• Instagram\n• YouTube\n• Facebook\n• Likee\n• Pinterest\n• Snapchat\n\n✨ Menga havola yuboring!',
         'choose_lang': '🌍 Tilni tanlang:',
         'lang_set': '✅ Til O\'zbekchaga o\'zgartirildi',
         'downloading': '⏳',
@@ -73,14 +72,30 @@ def get_text(user_id, key):
     lang = user_languages.get(user_id, 'ru')
     return texts[lang][key]
 
+# Определение платформ
 def is_instagram_url(url):
     return 'instagram.com' in url or 'instagr.am' in url
 
 def is_tiktok_url(url):
     return 'tiktok.com' in url or 'vm.tiktok.com' in url
 
+def is_facebook_url(url):
+    return 'facebook.com' in url or 'fb.watch' in url or 'fb.com' in url
+
+def is_likee_url(url):
+    return 'likee.video' in url or 'l.likee.video' in url
+
+def is_pinterest_url(url):
+    return 'pinterest.com' in url or 'pin.it' in url
+
+def is_snapchat_url(url):
+    return 'snapchat.com' in url or 'story.snapchat.com' in url
+
+def is_photo_platform(url):
+    """Платформы где часто бывают фото"""
+    return is_instagram_url(url) or is_tiktok_url(url) or is_pinterest_url(url)
+
 def get_video_info(video_path):
-    """Получает метаданные видео через ffprobe"""
     try:
         cmd = [
             'ffprobe', '-v', 'quiet', '-print_format', 'json',
@@ -89,9 +104,7 @@ def get_video_info(video_path):
         result = subprocess.run(cmd, capture_output=True, text=True)
         data = json.loads(result.stdout)
         
-        width = 720
-        height = 1280
-        duration = 0
+        width, height, duration = 720, 1280, 0
         
         for stream in data.get('streams', []):
             if stream.get('codec_type') == 'video':
@@ -153,79 +166,70 @@ def download_audio(url):
     return None
 
 def download_photos(url):
-    """Скачивает фото с TikTok"""
+    """Скачивает фото с любой платформы"""
     output_dir = f'photos_{os.getpid()}'
     os.makedirs(output_dir, exist_ok=True)
     
-    ydl_opts = {
-        'outtmpl': f'{output_dir}/photo_%(autonumber)s.%(ext)s',
-        'write_thumbnail': True,
-        'skip_download': False,
-        'quiet': True,
-        'no_warnings': True,
-    }
-    
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.extract_info(url, download=True)
-            
-        photos = []
-        for ext in ['jpg', 'jpeg', 'png', 'webp']:
-            photos.extend(glob.glob(f'{output_dir}/*.{ext}'))
+        ydl_opts = {
+            'outtmpl': f'{output_dir}/%(id)s.%(ext)s',
+            'quiet': True,
+            'no_warnings': True,
+        }
         
-        if photos:
-            return sorted(photos)
-            
-    except Exception as e:
-        print(f"Photo download error: {e}")
-    
-    return None
-
-def download_instagram_photos(url):
-    """Скачивает фото из Instagram"""
-    output_dir = f'insta_photos_{os.getpid()}'
-    os.makedirs(output_dir, exist_ok=True)
-    
-    ydl_opts = {
-        'outtmpl': f'{output_dir}/%(id)s.%(ext)s',
-        'quiet': True,
-        'no_warnings': True,
-    }
-    
-    try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
             
-            if info:
-                if 'entries' in info:
-                    photos = []
-                    for i, entry in enumerate(info['entries']):
-                        if entry.get('url') and entry.get('ext') != 'mp4':
-                            img_url = entry.get('url') or entry.get('thumbnail')
-                            if img_url:
-                                import requests
-                                response = requests.get(img_url)
-                                if response.status_code == 200:
-                                    photo_path = f'{output_dir}/photo_{i}.jpg'
-                                    with open(photo_path, 'wb') as f:
-                                        f.write(response.content)
-                                    photos.append(photo_path)
-                    if photos:
-                        return photos
-                        
-                elif info.get('thumbnail') and info.get('ext') != 'mp4':
-                    img_url = info.get('url') or info.get('thumbnail')
+            if not info:
+                return None
+                
+            photos = []
+            
+            # Карусель/несколько медиа
+            if 'entries' in info:
+                for i, entry in enumerate(info['entries']):
+                    img_url = None
+                    # Пропускаем видео
+                    if entry.get('ext') == 'mp4' or entry.get('vcodec') != 'none':
+                        continue
+                    img_url = entry.get('url') or entry.get('thumbnail')
                     if img_url:
-                        import requests
-                        response = requests.get(img_url)
+                        try:
+                            response = requests.get(img_url, timeout=30)
+                            if response.status_code == 200:
+                                ext = 'jpg'
+                                if 'png' in response.headers.get('content-type', ''):
+                                    ext = 'png'
+                                photo_path = f'{output_dir}/photo_{i}.{ext}'
+                                with open(photo_path, 'wb') as f:
+                                    f.write(response.content)
+                                photos.append(photo_path)
+                        except:
+                            pass
+            else:
+                # Одиночное фото
+                img_url = info.get('url') or info.get('thumbnail')
+                if img_url and info.get('ext') != 'mp4':
+                    try:
+                        response = requests.get(img_url, timeout=30)
                         if response.status_code == 200:
                             photo_path = f'{output_dir}/photo_0.jpg'
                             with open(photo_path, 'wb') as f:
                                 f.write(response.content)
-                            return [photo_path]
-                            
+                            photos.append(photo_path)
+                    except:
+                        pass
+            
+            # Ищем уже скачанные файлы
+            if not photos:
+                for ext in ['jpg', 'jpeg', 'png', 'webp']:
+                    photos.extend(glob.glob(f'{output_dir}/*.{ext}'))
+            
+            if photos:
+                return sorted(photos)
+                
     except Exception as e:
-        print(f"Instagram photo download error: {e}")
+        print(f"Photo download error: {e}")
     
     return None
 
@@ -287,11 +291,11 @@ def handle_message(message):
         
         loading_msg = bot.send_message(chat_id, get_text(user_id, 'downloading'))
         
+        # Пробуем скачать видео
         video_path = download_video(url)
         
         if video_path:
             try:
-                # Получаем метаданные для автовоспроизведения
                 width, height, duration = get_video_info(video_path)
                 
                 with open(video_path, 'rb') as video:
@@ -317,11 +321,9 @@ def handle_message(message):
             finally:
                 os.remove(video_path)
         else:
+            # Пробуем скачать фото
             photos = None
-            
-            if is_instagram_url(url):
-                photos = download_instagram_photos(url)
-            elif is_tiktok_url(url):
+            if is_photo_platform(url):
                 photos = download_photos(url)
             
             if photos:
@@ -355,4 +357,4 @@ def handle_message(message):
 if __name__ == '__main__':
     print("Bot started...")
     bot.infinity_polling()
-            
+                
