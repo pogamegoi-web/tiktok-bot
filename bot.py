@@ -119,6 +119,7 @@ def is_facebook_url(url):
     return 'facebook.com' in url.lower() or 'fb.watch' in url.lower()
 
 def download_tiktok_photos(url):
+    """Скачивает ТОЛЬКО фото из карусели TikTok (без обложек)"""
     try:
         headers = {
             'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15'
@@ -129,12 +130,9 @@ def download_tiktok_photos(url):
         
         photos = []
         
+        # Ищем ТОЛЬКО фото из карусели (imagePost), БЕЗ обложек видео
         patterns = [
-            r'"imageURL":\s*\{[^}]*"urlList":\s*\[\s*"([^"]+)"',
-            r'"originCover":\s*"([^"]+)"',
-            r'"displayUrl":\s*"([^"]+)"',
-            r'"url":\s*"(https://[^"]*tiktokcdn[^"]*\.jpeg[^"]*)"',
-            r'"url":\s*"(https://[^"]*tiktokcdn[^"]*\.webp[^"]*)"'
+            r'"imageURL":\s*\{[^}]*"urlList":\s*\[\s*"([^"]+)"'
         ]
         
         for pattern in patterns:
@@ -142,16 +140,25 @@ def download_tiktok_photos(url):
             for match in matches:
                 clean_url = match.replace('\\u002F', '/').replace('\\/', '/')
                 if clean_url.startswith('http') and clean_url not in photos:
-                    photos.append(clean_url)
+                    # Фильтруем обложки
+                    if 'cover' not in clean_url.lower() and 'thumb' not in clean_url.lower():
+                        photos.append(clean_url)
         
         if not photos:
             return None
             
         downloaded = []
+        seen_sizes = set()
+        
         for i, photo_url in enumerate(photos[:10]):
             try:
                 resp = requests.get(photo_url, headers=headers, timeout=30)
                 if resp.status_code == 200 and len(resp.content) > 5000:
+                    size = len(resp.content)
+                    if size in seen_sizes:
+                        continue
+                    seen_sizes.add(size)
+                    
                     ext = 'jpg'
                     if 'webp' in photo_url:
                         ext = 'webp'
@@ -429,7 +436,7 @@ def handle_message(message):
         
         # TikTok
         if is_tiktok_url(url):
-            # СНАЧАЛА пробуем видео через yt-dlp (для обычных видео и историй)
+            # СНАЧАЛА пробуем видео через yt-dlp
             video_path = download_video(url)
             if video_path:
                 normalized = normalize_audio(video_path, 'normalized_' + video_path)
@@ -439,7 +446,7 @@ def handle_message(message):
                                   width=width, height=height, duration=duration)
                 success = True
             else:
-                # Если видео нет - значит это фото-карусель (slideshow)
+                # Если видео нет - значит это фото-карусель
                 photos = download_tiktok_photos(url)
                 if photos:
                     if len(photos) == 1:
@@ -496,8 +503,8 @@ def handle_message(message):
                     width, height, duration = get_video_info(normalized)
                     with open(normalized, 'rb') as f:
                         bot.send_video(message.chat.id, f, supports_streaming=True,
-                                      width=width, height=height, duration=duration)
-                    success = True
+                                      width=width, height=height, duration=duration
+                                       success = True
                 
                 if photos:
                     if len(photos) == 1:
