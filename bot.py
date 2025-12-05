@@ -2,11 +2,15 @@ import telebot
 import subprocess
 import os
 import re
+import glob
 from config import BOT_TOKEN, ADMIN_ID
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
 user_lang = {}
+
+# Анимированный стикер песочных часов
+HOURGLASS_STICKER = "CAACAgIAAxkBAAEKxYZlUHKKAAHSvVl5AAGxqJ8t0wvDnlYeAAIjAAPANk8Tb2wmC94am2kzBA"
 
 texts = {
     'ru': {
@@ -25,10 +29,10 @@ texts = {
 🌐 Сменить язык: /language''',
         'lang_choice': '🌐 Выберите язык:',
         'lang_set': '✅ Язык установлен: Русский',
-        'downloading': '⏳ Скачиваю...',
-        'error': '❌ Не удалось скачать видео. Попробуйте позже или проверьте ссылку.',
+        'error': '❌ Не удалось скачать. Попробуйте позже или проверьте ссылку.',
         'video_caption': 'Скачано с @tiktok27_bot 🎬',
         'audio_caption': 'Скачано с @tiktok27_bot 🎵',
+        'photo_caption': 'Скачано с @tiktok27_bot 📷',
         'too_big': '⚠️ Видео слишком большое для Telegram (макс 50 МБ)'
     },
     'en': {
@@ -47,10 +51,10 @@ Just send me a link to the video!
 🌐 Change language: /language''',
         'lang_choice': '🌐 Choose language:',
         'lang_set': '✅ Language set: English',
-        'downloading': '⏳ Downloading...',
-        'error': '❌ Failed to download video. Try again later or check the link.',
+        'error': '❌ Failed to download. Try again later or check the link.',
         'video_caption': 'Downloaded with @tiktok27_bot 🎬',
         'audio_caption': 'Downloaded with @tiktok27_bot 🎵',
+        'photo_caption': 'Downloaded with @tiktok27_bot 📷',
         'too_big': '⚠️ Video is too large for Telegram (max 50 MB)'
     },
     'kz': {
@@ -69,10 +73,10 @@ Just send me a link to the video!
 🌐 Тілді өзгерту: /language''',
         'lang_choice': '🌐 Тілді таңдаңыз:',
         'lang_set': '✅ Тіл орнатылды: Қазақша',
-        'downloading': '⏳ Жүктелуде...',
-        'error': '❌ Видеоны жүктеу мүмкін болмады. Кейінірек қайталаңыз.',
+        'error': '❌ Жүктеу мүмкін болмады. Кейінірек қайталаңыз.',
         'video_caption': '@tiktok27_bot арқылы жүктелді 🎬',
         'audio_caption': '@tiktok27_bot арқылы жүктелді 🎵',
+        'photo_caption': '@tiktok27_bot арқылы жүктелді 📷',
         'too_big': '⚠️ Видео Telegram үшін тым үлкен (макс 50 МБ)'
     },
     'ua': {
@@ -91,10 +95,10 @@ Just send me a link to the video!
 🌐 Змінити мову: /language''',
         'lang_choice': '🌐 Оберіть мову:',
         'lang_set': '✅ Мову встановлено: Українська',
-        'downloading': '⏳ Завантажую...',
-        'error': '❌ Не вдалося завантажити відео. Спробуйте пізніше.',
+        'error': '❌ Не вдалося завантажити. Спробуйте пізніше.',
         'video_caption': 'Завантажено з @tiktok27_bot 🎬',
         'audio_caption': 'Завантажено з @tiktok27_bot 🎵',
+        'photo_caption': 'Завантажено з @tiktok27_bot 📷',
         'too_big': '⚠️ Відео занадто велике для Telegram (макс 50 МБ)'
     },
     'uz': {
@@ -113,10 +117,10 @@ Menga videoga havola yuboring!
 🌐 Tilni o'zgartirish: /language''',
         'lang_choice': "🌐 Tilni tanlang:",
         'lang_set': "✅ Til o'rnatildi: O'zbekcha",
-        'downloading': '⏳ Yuklanmoqda...',
-        'error': "❌ Videoni yuklab bo'lmadi. Keyinroq urinib ko'ring.",
+        'error': "❌ Yuklab bo'lmadi. Keyinroq urinib ko'ring.",
         'video_caption': '@tiktok27_bot orqali yuklandi 🎬',
         'audio_caption': '@tiktok27_bot orqali yuklandi 🎵',
+        'photo_caption': '@tiktok27_bot orqali yuklandi 📷',
         'too_big': '⚠️ Video Telegram uchun juda katta (maks 50 MB)'
     }
 }
@@ -153,8 +157,9 @@ def download_video(url):
     video_output = f"video_{os.getpid()}.mp4"
     cmd = [
         "yt-dlp",
-        "-f", "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080]/best",
+        "-f", "bestvideo[height<=1080][ext=mp4]+bestaudio/best[height<=1080]/best",
         "--merge-output-format", "mp4",
+        "--postprocessor-args", "ffmpeg:-af loudnorm=I=-16:TP=-1.5:LRA=11",
         "-o", video_output,
         "--no-playlist",
         url
@@ -167,9 +172,33 @@ def download_video(url):
         pass
     return None
 
+def download_photos(url):
+    prefix = f"photo_{os.getpid()}"
+    try:
+        subprocess.run(
+            ["yt-dlp", "-o", f"{prefix}_%(autonumber)s.%(ext)s", "--no-playlist", url],
+            capture_output=True,
+            timeout=300
+        )
+        photos = glob.glob(f"{prefix}_*.jpg") + glob.glob(f"{prefix}_*.jpeg") + glob.glob(f"{prefix}_*.png") + glob.glob(f"{prefix}_*.webp")
+        if photos:
+            return sorted(photos)
+    except:
+        pass
+    return None
+
 def download_audio(url):
     audio_output = f"audio_{os.getpid()}.mp3"
-    cmd = ["yt-dlp", "-x", "--audio-format", "mp3", "--audio-quality", "0", "-o", audio_output, "--no-playlist", url]
+    cmd = [
+        "yt-dlp",
+        "-x",
+        "--audio-format", "mp3",
+        "--audio-quality", "0",
+        "--postprocessor-args", "ffmpeg:-af loudnorm=I=-16:TP=-1.5:LRA=11",
+        "-o", audio_output,
+        "--no-playlist",
+        url
+    ]
     try:
         subprocess.run(cmd, check=True, timeout=300, capture_output=True)
         if os.path.exists(audio_output):
@@ -192,9 +221,11 @@ def handle(message):
             except:
                 pass
             
-            status_msg = bot.send_message(chat_id, get_text(user_id, 'downloading'))
+            # Отправляем анимированный стикер песочных часов
+            status_msg = bot.send_sticker(chat_id, HOURGLASS_STICKER)
             
             video = download_video(url)
+            
             if video:
                 try:
                     size = os.path.getsize(video) / (1024 * 1024)
@@ -204,6 +235,7 @@ def handle(message):
                         with open(video, 'rb') as f:
                             bot.send_video(chat_id, f, caption=get_text(user_id, 'video_caption'), supports_streaming=True)
                     os.remove(video)
+                    
                     audio = download_audio(url)
                     if audio:
                         with open(audio, 'rb') as f:
@@ -214,8 +246,37 @@ def handle(message):
                     if os.path.exists(video):
                         os.remove(video)
             else:
-                bot.send_message(chat_id, get_text(user_id, 'error'))
+                photos = download_photos(url)
+                if photos:
+                    try:
+                        media = []
+                        for i, photo in enumerate(photos[:10]):
+                            with open(photo, 'rb') as f:
+                                if i == 0:
+                                    media.append(telebot.types.InputMediaPhoto(f.read(), caption=get_text(user_id, 'photo_caption')))
+                                else:
+                                    media.append(telebot.types.InputMediaPhoto(f.read()))
+                        
+                        if media:
+                            bot.send_media_group(chat_id, media)
+                        
+                        for photo in photos:
+                            os.remove(photo)
+                        
+                        audio = download_audio(url)
+                        if audio:
+                            with open(audio, 'rb') as f:
+                                bot.send_audio(chat_id, f, caption=get_text(user_id, 'audio_caption'))
+                            os.remove(audio)
+                    except:
+                        bot.send_message(chat_id, get_text(user_id, 'error'))
+                        for photo in photos:
+                            if os.path.exists(photo):
+                                os.remove(photo)
+                else:
+                    bot.send_message(chat_id, get_text(user_id, 'error'))
             
+            # Удаляем стикер
             try:
                 bot.delete_message(chat_id, status_msg.message_id)
             except:
@@ -224,3 +285,4 @@ def handle(message):
 if __name__ == "__main__":
     print("Бот запущен!")
     bot.infinity_polling()
+    
