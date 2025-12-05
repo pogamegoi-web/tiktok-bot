@@ -11,7 +11,6 @@ import requests
 BOT_TOKEN = "8347415373:AAE86SZs9sHvHXIiNPv5h_1tPZf6hmLYGjI"
 ADMIN_ID = 6272691860
 
-# Путь к файлу cookies Facebook
 FACEBOOK_COOKIES = "facebook_cookies.txt"
 
 bot = telebot.TeleBot(BOT_TOKEN)
@@ -20,7 +19,7 @@ user_languages = {}
 
 texts = {
     'ru': {
-        'start': '👋 Привет! Я бот для скачивания видео и фото.\n\n📱 Поддерживаю:\n• TikTok\n• Instagram\n• YouTube\n• Pinterest\n• Facebook\n• Likee\n\n✨ Просто отправь мне ссылку!',
+        'start': '👋 Привет! Я бот для скачивания видео и фото.\n\n📱 Поддерживаю:\n• TikTok\n• Instagram\n• YouTube\n• Pinterest\n• Facebook (видео, фото, истории)\n• Likee\n\n✨ Просто отправь мне ссылку!',
         'choose_lang': '🌍 Выберите язык:',
         'lang_set': '✅ Язык изменён на Русский',
         'downloading': '⏳',
@@ -30,7 +29,7 @@ texts = {
         'photo_caption': 'Скачано с @tiktok27_bot 📷'
     },
     'en': {
-        'start': '👋 Hello! I download videos and photos.\n\n📱 Supported:\n• TikTok\n• Instagram\n• YouTube\n• Pinterest\n• Facebook\n• Likee\n\n✨ Just send me a link!',
+        'start': '👋 Hello! I download videos and photos.\n\n📱 Supported:\n• TikTok\n• Instagram\n• YouTube\n• Pinterest\n• Facebook (videos, photos, stories)\n• Likee\n\n✨ Just send me a link!',
         'choose_lang': '🌍 Choose language:',
         'lang_set': '✅ Language changed to English',
         'downloading': '⏳',
@@ -40,7 +39,7 @@ texts = {
         'photo_caption': 'Downloaded with @tiktok27_bot 📷'
     },
     'kz': {
-        'start': '👋 Сәлем! Мен бейне мен фото жүктеймін.\n\n📱 Қолдау:\n• TikTok\n• Instagram\n• YouTube\n• Pinterest\n• Facebook\n• Likee\n\n✨ Маған сілтеме жіберіңіз!',
+        'start': '👋 Сәлем! Мен бейне мен фото жүктеймін.\n\n📱 Қолдау:\n• TikTok\n• Instagram\n• YouTube\n• Pinterest\n• Facebook (бейне, фото, әңгімелер)\n• Likee\n\n✨ Маған сілтеме жіберіңіз!',
         'choose_lang': '🌍 Тілді таңдаңыз:',
         'lang_set': '✅ Тіл Қазақшаға өзгертілді',
         'downloading': '⏳',
@@ -50,7 +49,7 @@ texts = {
         'photo_caption': '@tiktok27_bot арқылы жүктелді 📷'
     },
     'ua': {
-        'start': '👋 Привіт! Я завантажую відео та фото.\n\n📱 Підтримую:\n• TikTok\n• Instagram\n• YouTube\n• Pinterest\n• Facebook\n• Likee\n\n✨ Просто надішліть мені посилання!',
+        'start': '👋 Привіт! Я завантажую відео та фото.\n\n📱 Підтримую:\n• TikTok\n• Instagram\n• YouTube\n• Pinterest\n• Facebook (відео, фото, історії)\n• Likee\n\n✨ Просто надішліть мені посилання!',
         'choose_lang': '🌍 Оберіть мову:',
         'lang_set': '✅ Мову змінено на Українську',
         'downloading': '⏳',
@@ -60,7 +59,7 @@ texts = {
         'photo_caption': 'Завантажено з @tiktok27_bot 📷'
     },
     'uz': {
-        'start': '👋 Salom! Men video va foto yuklayman.\n\n📱 Qo\'llab-quvvatlayman:\n• TikTok\n• Instagram\n• YouTube\n• Pinterest\n• Facebook\n• Likee\n\n✨ Menga havola yuboring!',
+        'start': '👋 Salom! Men video va foto yuklayman.\n\n📱 Qo\'llab-quvvatlayman:\n• TikTok\n• Instagram\n• YouTube\n• Pinterest\n• Facebook (video, foto, hikoyalar)\n• Likee\n\n✨ Menga havola yuboring!',
         'choose_lang': '🌍 Tilni tanlang:',
         'lang_set': '✅ Til O\'zbekchaga o\'zgartirildi',
         'downloading': '⏳',
@@ -91,7 +90,22 @@ def is_pinterest_url(url):
     return 'pinterest.com' in url or 'pin.it' in url
 
 def is_photo_platform(url):
-    return is_instagram_url(url) or is_tiktok_url(url) or is_pinterest_url(url)
+    return is_instagram_url(url) or is_tiktok_url(url) or is_pinterest_url(url) or is_facebook_url(url)
+
+def get_facebook_cookies():
+    """Загружает cookies Facebook для requests"""
+    cookies = {}
+    if os.path.exists(FACEBOOK_COOKIES):
+        try:
+            with open(FACEBOOK_COOKIES, 'r') as f:
+                for line in f:
+                    if not line.startswith('#') and line.strip():
+                        parts = line.strip().split('\t')
+                        if len(parts) >= 7:
+                            cookies[parts[5]] = parts[6]
+        except:
+            pass
+    return cookies
 
 def get_video_info(video_path):
     try:
@@ -118,13 +132,11 @@ def get_video_info(video_path):
         return 720, 1280, 0
 
 def download_likee_video(url):
-    """Специальный загрузчик для Likee"""
     output_path = f'video_{os.getpid()}.mp4'
     
     headers = {
         'User-Agent': 'Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
         'Referer': 'https://likee.video/',
     }
     
@@ -132,19 +144,31 @@ def download_likee_video(url):
         response = requests.get(url, headers=headers, timeout=30, allow_redirects=True)
         html = response.text
         
-        patterns = [
+        patterns_no_watermark = [
+            r'"originVideoUrl"\s*:\s*"([^"]+)"',
+            r'"videoUrlWithoutWatermark"\s*:\s*"([^"]+)"',
+        ]
+        
+        patterns_watermark = [
             r'"video_url"\s*:\s*"([^"]+)"',
             r'"playUrl"\s*:\s*"([^"]+)"',
-            r'source\s+src="([^"]+\.mp4[^"]*)"',
             r'"videoUrl"\s*:\s*"([^"]+)"',
         ]
         
         video_url = None
-        for pattern in patterns:
+        
+        for pattern in patterns_no_watermark:
             match = re.search(pattern, html)
             if match:
                 video_url = match.group(1).replace('\\u002F', '/').replace('\\/', '/')
                 break
+        
+        if not video_url:
+            for pattern in patterns_watermark:
+                match = re.search(pattern, html)
+                if match:
+                    video_url = match.group(1).replace('\\u002F', '/').replace('\\/', '/')
+                    break
         
         if video_url:
             video_response = requests.get(video_url, headers=headers, timeout=60)
@@ -156,10 +180,25 @@ def download_likee_video(url):
     except Exception as e:
         print(f"Likee download error: {e}")
     
+    ydl_opts = {
+        'outtmpl': output_path,
+        'format': 'best',
+        'quiet': True,
+        'no_warnings': True,
+        'http_headers': headers,
+    }
+    
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+        if os.path.exists(output_path):
+            return output_path
+    except:
+        pass
+    
     return None
 
 def download_facebook_video(url):
-    """Загрузчик для Facebook с cookies"""
     output_path = f'video_{os.getpid()}.mp4'
     
     ydl_opts = {
@@ -174,7 +213,6 @@ def download_facebook_video(url):
         'socket_timeout': 30,
     }
     
-    # Добавляем cookies если файл существует
     if os.path.exists(FACEBOOK_COOKIES):
         ydl_opts['cookiefile'] = FACEBOOK_COOKIES
     
@@ -184,14 +222,110 @@ def download_facebook_video(url):
         if os.path.exists(output_path):
             return output_path
     except Exception as e:
-        print(f"Facebook download error: {e}")
+        print(f"Facebook yt-dlp error: {e}")
+    
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    }
+    cookies = get_facebook_cookies()
+    
+    try:
+        response = requests.get(url, headers=headers, cookies=cookies, timeout=30)
+        html = response.text
+        
+        patterns = [
+            r'"playable_url_quality_hd"\s*:\s*"([^"]+)"',
+            r'"playable_url"\s*:\s*"([^"]+)"',
+            r'"hd_src"\s*:\s*"([^"]+)"',
+            r'"sd_src"\s*:\s*"([^"]+)"',
+            r'"video_url"\s*:\s*"([^"]+)"',
+            r'"src"\s*:\s*"(https[^"]+\.mp4[^"]*)"',
+        ]
+        
+        video_url = None
+        for pattern in patterns:
+            match = re.search(pattern, html)
+            if match:
+                video_url = match.group(1).replace('\\/', '/').encode().decode('unicode_escape')
+                if video_url.startswith('http'):
+                    break
+        
+        if video_url:
+            video_response = requests.get(video_url, headers=headers, cookies=cookies, timeout=60)
+            if video_response.status_code == 200 and len(video_response.content) > 10000:
+                with open(output_path, 'wb') as f:
+                    f.write(video_response.content)
+                return output_path
+                
+    except Exception as e:
+        print(f"Facebook parse error: {e}")
+    
+    return None
+
+def download_facebook_photos(url):
+    """Скачивает фото с Facebook"""
+    output_dir = f'fb_photos_{os.getpid()}'
+    os.makedirs(output_dir, exist_ok=True)
+    
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    }
+    cookies = get_facebook_cookies()
+    
+    try:
+        response = requests.get(url, headers=headers, cookies=cookies, timeout=30)
+        html = response.text
+        
+        photos = []
+        
+        # Паттерны для поиска фото
+        patterns = [
+            r'"image"\s*:\s*\{\s*"uri"\s*:\s*"([^"]+)"',
+            r'"full_image"\s*:\s*\{\s*"uri"\s*:\s*"([^"]+)"',
+            r'"large_share_image"\s*:\s*\{\s*"uri"\s*:\s*"([^"]+)"',
+            r'"previewImage"\s*:\s*\{\s*"uri"\s*:\s*"([^"]+)"',
+            r'<meta property="og:image" content="([^"]+)"',
+            r'"url"\s*:\s*"(https://scontent[^"]+\.jpg[^"]*)"',
+            r'"src"\s*:\s*"(https://scontent[^"]+\.jpg[^"]*)"',
+            r'"source"\s*:\s*"(https://scontent[^"]+\.jpg[^"]*)"',
+        ]
+        
+        found_urls = set()
+        
+        for pattern in patterns:
+            matches = re.findall(pattern, html)
+            for match in matches:
+                img_url = match.replace('\\/', '/').replace('&amp;', '&')
+                try:
+                    img_url = img_url.encode().decode('unicode_escape')
+                except:
+                    pass
+                if img_url.startswith('http') and 'scontent' in img_url:
+                    found_urls.add(img_url)
+        
+        # Скачиваем уникальные фото
+        for i, img_url in enumerate(list(found_urls)[:10]):
+            try:
+                img_response = requests.get(img_url, headers=headers, cookies=cookies, timeout=30)
+                if img_response.status_code == 200 and len(img_response.content) > 5000:
+                    photo_path = f'{output_dir}/photo_{i}.jpg'
+                    with open(photo_path, 'wb') as f:
+                        f.write(img_response.content)
+                    photos.append(photo_path)
+            except:
+                pass
+        
+        if photos:
+            return photos
+            
+    except Exception as e:
+        print(f"Facebook photo download error: {e}")
     
     return None
 
 def download_video(url):
     output_path = f'video_{os.getpid()}.mp4'
     
-    # Специальные загрузчики
     if is_likee_url(url):
         result = download_likee_video(url)
         if result:
@@ -202,7 +336,6 @@ def download_video(url):
         if result:
             return result
     
-    # Стандартный yt-dlp
     ydl_opts = {
         'outtmpl': output_path,
         'format': 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080]/best',
@@ -286,9 +419,15 @@ def download_pinterest_image(url):
     return None
 
 def download_photos(url):
+    # Facebook фото
+    if is_facebook_url(url):
+        return download_facebook_photos(url)
+    
+    # Pinterest фото
     if is_pinterest_url(url):
         return download_pinterest_image(url)
     
+    # TikTok и Instagram
     output_dir = f'photos_{os.getpid()}'
     os.makedirs(output_dir, exist_ok=True)
     
@@ -472,4 +611,3 @@ def handle_message(message):
 if __name__ == '__main__':
     print("Bot started...")
     bot.infinity_polling()
-    
