@@ -427,26 +427,30 @@ def handle_message(message):
         cleanup_files()
         success = False
         
+        # TikTok
         if is_tiktok_url(url):
-            photos = download_tiktok_photos(url)
-            if photos:
-                if len(photos) == 1:
-                    with open(photos[0], 'rb') as f:
-                        bot.send_photo(message.chat.id, f)
-                else:
-                    media = [telebot.types.InputMediaPhoto(open(p, 'rb')) for p in photos[:10]]
-                    bot.send_media_group(message.chat.id, media)
+            # СНАЧАЛА пробуем видео через yt-dlp (для обычных видео и историй)
+            video_path = download_video(url)
+            if video_path:
+                normalized = normalize_audio(video_path, 'normalized_' + video_path)
+                width, height, duration = get_video_info(normalized)
+                with open(normalized, 'rb') as f:
+                    bot.send_video(message.chat.id, f, supports_streaming=True,
+                                  width=width, height=height, duration=duration)
                 success = True
             else:
-                video_path = download_video(url)
-                if video_path:
-                    normalized = normalize_audio(video_path, 'normalized_' + video_path)
-                    width, height, duration = get_video_info(normalized)
-                    with open(normalized, 'rb') as f:
-                        bot.send_video(message.chat.id, f, supports_streaming=True,
-                                      width=width, height=height, duration=duration)
+                # Если видео нет - значит это фото-карусель (slideshow)
+                photos = download_tiktok_photos(url)
+                if photos:
+                    if len(photos) == 1:
+                        with open(photos[0], 'rb') as f:
+                            bot.send_photo(message.chat.id, f)
+                    else:
+                        media = [telebot.types.InputMediaPhoto(open(p, 'rb')) for p in photos[:10]]
+                        bot.send_media_group(message.chat.id, media)
                     success = True
         
+        # Instagram
         elif is_instagram_url(url):
             content = download_instagram_content(url)
             if content:
@@ -480,6 +484,7 @@ def handle_message(message):
                                       width=width, height=height, duration=duration)
                     success = True
         
+        # Facebook
         elif is_facebook_url(url):
             content = download_facebook_content(url)
             if content:
@@ -501,7 +506,7 @@ def handle_message(message):
                     else:
                         media = [telebot.types.InputMediaPhoto(open(p, 'rb')) for p in photos[:10]]
                         bot.send_media_group(message.chat.id, media)
-                        success = True
+                    success = True
             
             if not success:
                 video_path = download_video(url)
@@ -513,6 +518,7 @@ def handle_message(message):
                                       width=width, height=height, duration=duration)
                     success = True
         
+        # YouTube
         elif is_youtube_url(url):
             video_path = download_video(url)
             if video_path:
@@ -542,4 +548,3 @@ def handle_message(message):
 if __name__ == "__main__":
     print("Bot started...")
     bot.infinity_polling()
-   
