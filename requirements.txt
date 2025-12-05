@@ -1,6 +1,0 @@
-# bot dependencies
-pyTelegramBotAPI
-yt-dlp
-requests
-
-
