@@ -22,7 +22,7 @@ texts = {
 Как использовать:
 Просто отправь мне ссылку на видео!
 
-🌐 Сменить язык: /lang''',
+🌐 Сменить язык: /language''',
         'lang_choice': '🌐 Выберите язык:',
         'lang_set': '✅ Язык установлен: Русский',
         'downloading': '⏳ Скачиваю...',
@@ -44,7 +44,7 @@ Hi! I can download videos from:
 How to use:
 Just send me a link to the video!
 
-🌐 Change language: /lang''',
+🌐 Change language: /language''',
         'lang_choice': '🌐 Choose language:',
         'lang_set': '✅ Language set: English',
         'downloading': '⏳ Downloading...',
@@ -66,7 +66,7 @@ Just send me a link to the video!
 Қалай қолдану керек:
 Маған видеоға сілтеме жіберіңіз!
 
-🌐 Тілді өзгерту: /lang''',
+🌐 Тілді өзгерту: /language''',
         'lang_choice': '🌐 Тілді таңдаңыз:',
         'lang_set': '✅ Тіл орнатылды: Қазақша',
         'downloading': '⏳ Жүктелуде...',
@@ -88,7 +88,7 @@ Just send me a link to the video!
 Як використовувати:
 Просто надішли мені посилання на відео!
 
-🌐 Змінити мову: /lang''',
+🌐 Змінити мову: /language''',
         'lang_choice': '🌐 Оберіть мову:',
         'lang_set': '✅ Мову встановлено: Українська',
         'downloading': '⏳ Завантажую...',
@@ -110,7 +110,7 @@ Salom! Men video yuklay olaman:
 Qanday foydalanish:
 Menga videoga havola yuboring!
 
-🌐 Tilni o'zgartirish: /lang''',
+🌐 Tilni o'zgartirish: /language''',
         'lang_choice': "🌐 Tilni tanlang:",
         'lang_set': "✅ Til o'rnatildi: O'zbekcha",
         'downloading': '⏳ Yuklanmoqda...',
@@ -130,7 +130,7 @@ def cmd_start(message):
     user_lang.setdefault(message.from_user.id, 'ru')
     bot.send_message(message.chat.id, get_text(message.from_user.id, 'start'))
 
-@bot.message_handler(commands=['lang'])
+@bot.message_handler(commands=['language'])
 def cmd_lang(message):
     markup = telebot.types.InlineKeyboardMarkup(row_width=2)
     markup.add(
@@ -151,7 +151,14 @@ def callback_lang(call):
 
 def download_video(url):
     video_output = f"video_{os.getpid()}.mp4"
-    cmd = ["yt-dlp", "-f", "best[ext=mp4]/best", "-o", video_output, "--no-playlist", url]
+    cmd = [
+        "yt-dlp",
+        "-f", "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080]/best",
+        "--merge-output-format", "mp4",
+        "-o", video_output,
+        "--no-playlist",
+        url
+    ]
     try:
         subprocess.run(cmd, check=True, timeout=300, capture_output=True)
         if os.path.exists(video_output):
@@ -162,7 +169,7 @@ def download_video(url):
 
 def download_audio(url):
     audio_output = f"audio_{os.getpid()}.mp3"
-    cmd = ["yt-dlp", "-x", "--audio-format", "mp3", "-o", audio_output, "--no-playlist", url]
+    cmd = ["yt-dlp", "-x", "--audio-format", "mp3", "--audio-quality", "0", "-o", audio_output, "--no-playlist", url]
     try:
         subprocess.run(cmd, check=True, timeout=300, capture_output=True)
         if os.path.exists(audio_output):
@@ -217,4 +224,3 @@ def handle(message):
 if __name__ == "__main__":
     print("Бот запущен!")
     bot.infinity_polling()
-    
