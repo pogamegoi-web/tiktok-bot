@@ -128,7 +128,7 @@ def get_text(user_id, key):
 @bot.message_handler(commands=['start'])
 def cmd_start(message):
     user_lang.setdefault(message.from_user.id, 'ru')
-    bot.reply_to(message, get_text(message.from_user.id, 'start'))
+    bot.send_message(message.chat.id, get_text(message.from_user.id, 'start'))
 
 @bot.message_handler(commands=['lang'])
 def cmd_lang(message):
@@ -140,7 +140,7 @@ def cmd_lang(message):
         telebot.types.InlineKeyboardButton("🇺🇦 Українська", callback_data="lang_ua"),
         telebot.types.InlineKeyboardButton("🇺🇿 O'zbekcha", callback_data="lang_uz")
     )
-    bot.reply_to(message, get_text(message.from_user.id, 'lang_choice'), reply_markup=markup)
+    bot.send_message(message.chat.id, get_text(message.from_user.id, 'lang_choice'), reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('lang_'))
 def callback_lang(call):
@@ -177,30 +177,40 @@ def handle(message):
     urls = re.findall(r'https?://[^\s]+', text)
     for url in urls:
         if any(x in url for x in ['tiktok.com', 'instagram.com', 'youtube.com', 'youtu.be']):
-            status_msg = bot.reply_to(message, get_text(message.from_user.id, 'downloading'))
+            chat_id = message.chat.id
+            user_id = message.from_user.id
+            
+            try:
+                bot.delete_message(chat_id, message.message_id)
+            except:
+                pass
+            
+            status_msg = bot.send_message(chat_id, get_text(user_id, 'downloading'))
+            
             video = download_video(url)
             if video:
                 try:
                     size = os.path.getsize(video) / (1024 * 1024)
                     if size > 50:
-                        bot.reply_to(message, get_text(message.from_user.id, 'too_big'))
+                        bot.send_message(chat_id, get_text(user_id, 'too_big'))
                     else:
                         with open(video, 'rb') as f:
-                            bot.send_video(message.chat.id, f, caption=get_text(message.from_user.id, 'video_caption'))
+                            bot.send_video(chat_id, f, caption=get_text(user_id, 'video_caption'), supports_streaming=True)
                     os.remove(video)
                     audio = download_audio(url)
                     if audio:
                         with open(audio, 'rb') as f:
-                            bot.send_audio(message.chat.id, f, caption=get_text(message.from_user.id, 'audio_caption'))
+                            bot.send_audio(chat_id, f, caption=get_text(user_id, 'audio_caption'))
                         os.remove(audio)
                 except:
-                    bot.reply_to(message, get_text(message.from_user.id, 'error'))
+                    bot.send_message(chat_id, get_text(user_id, 'error'))
                     if os.path.exists(video):
                         os.remove(video)
             else:
-                bot.reply_to(message, get_text(message.from_user.id, 'error'))
+                bot.send_message(chat_id, get_text(user_id, 'error'))
+            
             try:
-                bot.delete_message(message.chat.id, status_msg.message_id)
+                bot.delete_message(chat_id, status_msg.message_id)
             except:
                 pass
 
