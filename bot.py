@@ -9,9 +9,6 @@ bot = telebot.TeleBot(BOT_TOKEN)
 
 user_lang = {}
 
-# Анимированный стикер песочных часов
-HOURGLASS_STICKER = "CAACAgIAAxkBAAEKxYZlUHKKAAHSvVl5AAGxqJ8t0wvDnlYeAAIjAAPANk8Tb2wmC94am2kzBA"
-
 texts = {
     'ru': {
         'start': '''🎬 Video Downloader Bot
@@ -221,8 +218,8 @@ def handle(message):
             except:
                 pass
             
-            # Отправляем анимированный стикер песочных часов
-            status_msg = bot.send_sticker(chat_id, HOURGLASS_STICKER)
+            # Просто эмодзи песочных часов
+            status_msg = bot.send_message(chat_id, "⏳")
             
             video = download_video(url)
             
@@ -276,7 +273,6 @@ def handle(message):
                 else:
                     bot.send_message(chat_id, get_text(user_id, 'error'))
             
-            # Удаляем стикер
             try:
                 bot.delete_message(chat_id, status_msg.message_id)
             except:
@@ -285,4 +281,3 @@ def handle(message):
 if __name__ == "__main__":
     print("Бот запущен!")
     bot.infinity_polling()
-    
