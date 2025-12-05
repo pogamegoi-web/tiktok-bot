@@ -81,9 +81,10 @@ def get_video_info(video_path):
         return None, None, None
 
 def extract_audio(video_path):
-    """Извлекает аудио из видео в MP3"""
+    """Извлекает аудио из видео в MP3 БЕЗ изменения громкости"""
     try:
         audio_path = "audio_extracted.mp3"
+        # Без нормализации - оригинальная громкость
         cmd = ['ffmpeg', '-y', '-i', video_path, '-vn', '-acodec', 'libmp3lame', '-ab', '192k', audio_path]
         subprocess.run(cmd, capture_output=True, timeout=120)
         if os.path.exists(audio_path) and os.path.getsize(audio_path) > 1000:
@@ -91,6 +92,36 @@ def extract_audio(video_path):
     except:
         pass
     return None
+
+def download_tiktok_audio(url):
+    """Скачивает только аудио из TikTok (для фото-каруселей)"""
+    try:
+        ydl_opts = {
+            'format': 'bestaudio/best',
+            'outtmpl': 'tiktok_audio.%(ext)s',
+            'quiet': True,
+            'no_warnings': True,
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '192',
+            }],
+        }
+        # Удаляем старые аудио файлы
+        for f in os.listdir('.'):
+            if f.startswith('tiktok_audio'):
+                os.remove(f)
+        
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+        
+        # Ищем скачанный аудио файл
+        for f in os.listdir('.'):
+            if f.startswith('tiktok_audio') and f.endswith('.mp3'):
+                return f
+        return None
+    except:
+        return None
 
 def get_audio_duration(audio_path):
     try:
@@ -297,16 +328,6 @@ def download_video(url):
         print(f"yt-dlp error: {e}")
         return None
 
-def normalize_audio(input_path, output_path):
-    try:
-        cmd = ['ffmpeg', '-y', '-i', input_path, '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', output_path]
-        subprocess.run(cmd, capture_output=True, timeout=300)
-        if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
-            return output_path
-    except:
-        pass
-    return input_path
-
 def cleanup_files():
     for f in os.listdir('.'):
         if any([f.startswith('video.'), f.startswith('tiktok_'), f.startswith('instagram_'), f.startswith('facebook_'), f.startswith('normalized_'), f.startswith('audio_'), f.endswith('.mp4'), f.endswith('.mp3'), f.endswith('.jpg'), f.endswith('.webp'), f.endswith('.part')]):
@@ -349,18 +370,19 @@ def handle_message(message):
         if is_tiktok_url(url):
             video_path = download_video(url)
             if video_path:
-                normalized = normalize_audio(video_path, 'normalized_' + video_path)
-                width, height, duration = get_video_info(normalized)
-                with open(normalized, 'rb') as f:
+                # Видео - отправляем как есть (без нормализации)
+                width, height, duration = get_video_info(video_path)
+                with open(video_path, 'rb') as f:
                     bot.send_video(message.chat.id, f, supports_streaming=True, width=width, height=height, duration=duration)
-                # Отправляем музыку отдельно
-                audio_path = extract_audio(normalized)
+                # Извлекаем музыку с оригинальной громкостью
+                audio_path = extract_audio(video_path)
                 if audio_path:
                     audio_duration = get_audio_duration(audio_path)
                     with open(audio_path, 'rb') as f:
                         bot.send_audio(message.chat.id, f, duration=audio_duration)
                 success = True
             else:
+                # Фото-карусель
                 photos = download_tiktok_photos(url)
                 if photos:
                     if len(photos) == 1:
@@ -369,6 +391,14 @@ def handle_message(message):
                     else:
                         media = [telebot.types.InputMediaPhoto(open(p, 'rb')) for p in photos[:10]]
                         bot.send_media_group(message.chat.id, media)
+                    
+                    # Скачиваем и отправляем музыку для фото-карусели
+                    audio_path = download_tiktok_audio(url)
+                    if audio_path:
+                        audio_duration = get_audio_duration(audio_path)
+                        with open(audio_path, 'rb') as f:
+                            bot.send_audio(message.chat.id, f, duration=audio_duration)
+                    
                     success = True
         
         elif is_instagram_url(url):
@@ -377,9 +407,8 @@ def handle_message(message):
                 videos = [c[1] for c in content if c[0] == 'video']
                 photos = [c[1] for c in content if c[0] == 'photo']
                 for video_path in videos:
-                    normalized = normalize_audio(video_path, 'normalized_' + video_path)
-                    width, height, duration = get_video_info(normalized)
-                    with open(normalized, 'rb') as f:
+                    width, height, duration = get_video_info(video_path)
+                    with open(video_path, 'rb') as f:
                         bot.send_video(message.chat.id, f, supports_streaming=True, width=width, height=height, duration=duration)
                     success = True
                 if photos:
@@ -393,9 +422,8 @@ def handle_message(message):
             if not success:
                 video_path = download_video(url)
                 if video_path:
-                    normalized = normalize_audio(video_path, 'normalized_' + video_path)
-                    width, height, duration = get_video_info(normalized)
-                    with open(normalized, 'rb') as f:
+                    width, height, duration = get_video_info(video_path)
+                    with open(video_path, 'rb') as f:
                         bot.send_video(message.chat.id, f, supports_streaming=True, width=width, height=height, duration=duration)
                     success = True
         
@@ -405,34 +433,16 @@ def handle_message(message):
                 videos = [c[1] for c in content if c[0] == 'video']
                 photos = [c[1] for c in content if c[0] == 'photo']
                 for video_path in videos:
-                    normalized = normalize_audio(video_path, 'normalized_' + video_path)
-                    width, height, duration = get_video_info(normalized)
-                    with open(normalized, 'rb') as f:
-                        bot.send_video(message.chat.id, f, supports_streaming=True, width=width, height=height, duration=duration)
-                    success = True
-                if photos:
-                    if len(photos) == 1:
-                        with open(photos[0], 'rb') as f:
-                            bot.send_photo(message.chat.id, f)
-                    else:
-                        media = [telebot.types.InputMediaPhoto(open(p, 'rb')) for p in photos[:10]]
-                        bot.send_media_group(message.chat.id, media)
-                    success = True
-            if not success:
-                video_path = download_video(url)
-                if video_path:
-                    normalized = normalize_audio(video_path, 'normalized_' + video_path)
-                    width, height, duration = get_video_info(normalized)
-                    with open(normalized, 'rb') as f:
+                    width, height, duration = get_video_info(video_path)
+                    with open(video_path, 'rb') as f:
                         bot.send_video(message.chat.id, f, supports_streaming=True, width=width, height=height, duration=duration)
                     success = True
         
         elif is_youtube_url(url):
             video_path = download_video(url)
             if video_path:
-                normalized = normalize_audio(video_path, 'normalized_' + video_path)
-                width, height, duration = get_video_info(normalized)
-                with open(normalized, 'rb') as f:
+                width, height, duration = get_video_info(video_path)
+                with open(video_path, 'rb') as f:
                     bot.send_video(message.chat.id, f, supports_streaming=True, width=width, height=height, duration=duration)
                 success = True
         
@@ -453,5 +463,4 @@ def handle_message(message):
 
 if __name__ == "__main__":
     print("Bot started...")
-    bot.infinity_polling()
-      
+    bot.infinity_polling()   
