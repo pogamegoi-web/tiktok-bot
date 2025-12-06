@@ -7,12 +7,14 @@ import re
 BOT_TOKEN = "8347415373:AAE86SZs9sHvHXIiNPv5h_1tPZf6hmLYGjI"
 bot = telebot.TeleBot(BOT_TOKEN)
 
+BOT_USERNAME = "@tiktok27_bot"
+
 TEXTS = {
-    'ru': {'start': '👋 Привет! Отправь ссылку на TikTok видео или фото', 'downloading': '⏳ Загружаю в HD...', 'success': '✅ Готово!', 'error': '❌ Не удалось скачать'},
-    'en': {'start': '👋 Hi! Send me a TikTok video or photo link', 'downloading': '⏳ Downloading in HD...', 'success': '✅ Done!', 'error': '❌ Failed to download'},
-    'kk': {'start': '👋 Сәлем! TikTok видео немесе фото сілтемесін жіберіңіз', 'downloading': '⏳ HD жүктеп алуда...', 'success': '✅ Дайын!', 'error': '❌ Жүктеу сәтсіз'},
-    'uk': {'start': '👋 Привіт! Надішліть посилання на TikTok відео або фото', 'downloading': '⏳ Завантажую в HD...', 'success': '✅ Готово!', 'error': '❌ Не вдалося завантажити'},
-    'uz': {'start': '👋 Salom! TikTok video yoki rasm havolasini yuboring', 'downloading': '⏳ HD yuklanmoqda...', 'success': '✅ Tayyor!', 'error': '❌ Yuklab bo\'lmadi'}
+    'ru': {'start': '👋 Привет! Отправь ссылку на TikTok видео или фото', 'downloading': '⏳ Загружаю в HD...', 'error': '❌ Не удалось скачать'},
+    'en': {'start': '👋 Hi! Send me a TikTok video or photo link', 'downloading': '⏳ Downloading in HD...', 'error': '❌ Failed to download'},
+    'kk': {'start': '👋 Сәлем! TikTok видео немесе фото сілтемесін жіберіңіз', 'downloading': '⏳ HD жүктеп алуда...', 'error': '❌ Жүктеу сәтсіз'},
+    'uk': {'start': '👋 Привіт! Надішліть посилання на TikTok відео або фото', 'downloading': '⏳ Завантажую в HD...', 'error': '❌ Не вдалося завантажити'},
+    'uz': {'start': '👋 Salom! TikTok video yoki rasm havolasini yuboring', 'downloading': '⏳ HD yuklanmoqda...', 'error': '❌ Yuklab bo\'lmadi'}
 }
 
 def get_text(user, key):
@@ -72,8 +74,8 @@ def handle_tiktok(message):
     url = message.text.strip()
     user = message.from_user
     chat_id = message.chat.id
+    caption = f"Скачано с {BOT_USERNAME}"
     
-    # Удаляем сообщение со ссылкой
     try:
         bot.delete_message(chat_id, message.message_id)
     except:
@@ -85,60 +87,54 @@ def handle_tiktok(message):
         data = download_via_tikwm(url)
         
         if data:
-            # Если есть изображения - это фото контент
             if data.get('images'):
                 photos = data['images']
                 for photo_url in photos:
                     try:
-                        bot.send_photo(chat_id, photo_url)
+                        bot.send_photo(chat_id, photo_url, caption=caption)
                     except:
                         pass
                 
                 if data.get('music'):
                     try:
-                        bot.send_audio(chat_id, data['music'])
+                        bot.send_audio(chat_id, data['music'], caption=caption)
                     except:
                         pass
                 
                 bot.delete_message(chat_id, status.message_id)
-                bot.send_message(chat_id, get_text(user, 'success'))
                 return
             
-            # Иначе это видео
             video_url = data.get('hdplay') or data.get('play')
             if video_url:
                 try:
-                    bot.send_video(chat_id, video_url)
+                    bot.send_video(chat_id, video_url, caption=caption)
                     
                     if data.get('music'):
                         try:
-                            bot.send_audio(chat_id, data['music'])
+                            bot.send_audio(chat_id, data['music'], caption=caption)
                         except:
                             pass
                     
                     bot.delete_message(chat_id, status.message_id)
-                    bot.send_message(chat_id, get_text(user, 'success'))
                     return
                 except:
                     pass
         
-        # Fallback через yt-dlp
         video_file = download_video_hd(url)
         if video_file:
             with open(video_file, 'rb') as f:
-                bot.send_video(chat_id, f)
+                bot.send_video(chat_id, f, caption=caption)
             os.remove(video_file)
             bot.delete_message(chat_id, status.message_id)
-            bot.send_message(chat_id, get_text(user, 'success'))
             return
         
         bot.delete_message(chat_id, status.message_id)
         bot.send_message(chat_id, get_text(user, 'error'))
         
-    except Exception as e:
+    except:
         bot.delete_message(chat_id, status.message_id)
         bot.send_message(chat_id, get_text(user, 'error'))
 
 if __name__ == "__main__":
     bot.polling(none_stop=True)
-                        
+    
