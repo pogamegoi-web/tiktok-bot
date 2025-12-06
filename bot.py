@@ -1,241 +1,214 @@
-import telebot
-from telebot.types import InputMediaPhoto
-import yt_dlp
+import os
+import re
 import requests
 import subprocess
-import os
+from telegram import Update, InputMediaPhoto, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, MessageHandler, CommandHandler, CallbackQueryHandler, filters, ContextTypes
 
-BOT_TOKEN = "8347415373:AAE86SZs9sHvHXIiNPv5h_1tPZf6hmLYGjI"
-bot = telebot.TeleBot(BOT_TOKEN)
+BOT_TOKEN = os.environ.get('BOT_TOKEN', '8347415373:AAE86SZs9sHvHXIiNPv5h_1tPZf6hmLYGjI')
 
-BOT_USERNAME = "@tiktok27_bot"
+user_languages = {}
 
 TEXTS = {
-    'ru': {'start': '👋 Привет! Отправь ссылку на TikTok видео или фото', 'error': '❌ Не удалось скачать'},
-    'en': {'start': '👋 Hi! Send me a TikTok video or photo link', 'error': '❌ Failed to download'},
-    'kk': {'start': '👋 Сәлем! TikTok видео немесе фото сілтемесін жіберіңіз', 'error': '❌ Жүктеу сәтсіз'},
-    'uk': {'start': '👋 Привіт! Надішліть посилання на TikTok відео або фото', 'error': '❌ Не вдалося завантажити'},
-    'uz': {'start': '👋 Salom! TikTok video yoki rasm havolasini yuboring', 'error': '❌ Yuklab bo\'lmadi'}
+    'ru': {
+        'welcome': "🎬 Video Downloader Bot\n\nПривет! Я могу скачать видео из:\n• TikTok\n\n✨ Без водяного знака и в HD!\n\nКак использовать:\nПросто отправь мне ссылку на видео!",
+        'choose_lang': "🌐 Выберите язык:",
+        'lang_set': "✅ Язык изменён на Русский",
+        'downloading': "⏳ Скачиваю...",
+        'error': "❌ Ошибка",
+        'caption': "Скачано с @tiktok27_bot"
+    },
+    'en': {
+        'welcome': "🎬 Video Downloader Bot\n\nHello! I can download videos from:\n• TikTok\n\n✨ No watermark and in HD!\n\nHow to use:\nJust send me a video link!",
+        'choose_lang': "🌐 Choose language:",
+        'lang_set': "✅ Language changed to English",
+        'downloading': "⏳ Downloading...",
+        'error': "❌ Error",
+        'caption': "Downloaded via @tiktok27_bot"
+    },
+    'uk': {
+        'welcome': "🎬 Video Downloader Bot\n\nПривіт! Я можу завантажити відео з:\n• TikTok\n\n✨ Без водяного знаку та в HD!\n\nЯк використовувати:\nПросто надішли мені посилання на відео!",
+        'choose_lang': "🌐 Оберіть мову:",
+        'lang_set': "✅ Мову змінено на Українську",
+        'downloading': "⏳ Завантажую...",
+        'error': "❌ Помилка",
+        'caption': "Завантажено з @tiktok27_bot"
+    },
+    'uz': {
+        'welcome': "🎬 Video Downloader Bot\n\nSalom! Men quyidagi videolarni yuklab olishim mumkin:\n• TikTok\n\n✨ Suv belgisisiz va HD sifatda!\n\nQanday foydalanish:\nMenga video havolasini yuboring!",
+        'choose_lang': "🌐 Tilni tanlang:",
+        'lang_set': "✅ Til O'zbek tiliga o'zgartirildi",
+        'downloading': "⏳ Yuklanmoqda...",
+        'error': "❌ Xato",
+        'caption': "@tiktok27_bot orqali yuklandi"
+    },
+    'kk': {
+        'welcome': "🎬 Video Downloader Bot\n\nСәлем! Мен видео жүктей аламын:\n• TikTok\n\n✨ Су белгісіз және HD сапада!\n\nҚалай пайдалану:\nМаған видео сілтемесін жіберіңіз!",
+        'choose_lang': "🌐 Тілді таңдаңыз:",
+        'lang_set': "✅ Тіл Қазақшаға өзгертілді",
+        'downloading': "⏳ Жүктелуде...",
+        'error': "❌ Қате",
+        'caption': "@tiktok27_bot арқылы жүктелді"
+    }
 }
 
-def get_text(user, key):
-    lang = getattr(user, 'language_code', 'en') or 'en'
-    return TEXTS.get(lang, TEXTS['en']).get(key, TEXTS['en'][key])
+def get_text(user_id, key):
+    lang = user_languages.get(user_id, 'ru')
+    return TEXTS.get(lang, TEXTS['ru']).get(key, TEXTS['ru'][key])
 
-def download_via_tikwm(url):
+def get_lang_keyboard():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🇷🇺 Русский", callback_data="lang_ru"),
+         InlineKeyboardButton("🇬🇧 English", callback_data="lang_en")],
+        [InlineKeyboardButton("🇺🇦 Українська", callback_data="lang_uk"),
+         InlineKeyboardButton("🇺🇿 O'zbek", callback_data="lang_uz")],
+        [InlineKeyboardButton("🇰🇿 Қазақша", callback_data="lang_kk")]
+    ])
+
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    await update.message.reply_text(
+        get_text(user_id, 'welcome'),
+        reply_markup=get_lang_keyboard()
+    )
+
+async def language_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    user_id = query.from_user.id
+    lang_code = query.data.replace("lang_", "")
+    user_languages[user_id] = lang_code
+    
+    await query.edit_message_text(
+        get_text(user_id, 'welcome'),
+        reply_markup=get_lang_keyboard()
+    )
+    await query.message.reply_text(get_text(user_id, 'lang_set'))
+
+def extract_video_id(url):
     try:
-        api_url = f"https://www.tikwm.com/api/?url={url}&hd=1"
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        resp = requests.get(api_url, headers=headers, timeout=10)
-        data = resp.json()
-        if data.get('code') == 0:
-            d = data.get('data', {})
-            return {
-                'images': d.get('images', []),
-                'music': d.get('music'),
-                'hdplay': d.get('hdplay'),
-                'play': d.get('play')
-            }
+        if 'vm.tiktok.com' in url or 'vt.tiktok.com' in url:
+            response = requests.head(url, allow_redirects=True, timeout=10)
+            url = response.url
+        match = re.search(r'/video/(\d+)', url)
+        if match:
+            return match.group(1)
+        match = re.search(r'/photo/(\d+)', url)
+        if match:
+            return match.group(1)
     except:
         pass
     return None
 
-def download_and_boost_audio(url):
-    try:
-        resp = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=30)
-        with open('audio_orig.mp3', 'wb') as f:
-            f.write(resp.content)
-        
-        subprocess.run([
-            'ffmpeg', '-i', 'audio_orig.mp3',
-            '-filter:a', 'volume=2.0',
-            '-y', 'audio.mp3'
-        ], capture_output=True, timeout=30)
-        
-        try:
-            os.remove('audio_orig.mp3')
-        except:
-            pass
-        
-        if os.path.exists('audio.mp3'):
-            return 'audio.mp3'
-    except:
-        pass
-    return None
+def boost_audio(input_path, output_path):
+    cmd = ['ffmpeg', '-y', '-i', input_path, '-af', 'volume=2.0', '-c:v', 'copy', output_path]
+    subprocess.run(cmd, capture_output=True)
 
-def download_and_boost_video(video_url):
-    try:
-        resp = requests.get(video_url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=60)
-        with open('video_orig.mp4', 'wb') as f:
-            f.write(resp.content)
-        
-        subprocess.run([
-            'ffmpeg', '-i', 'video_orig.mp4',
-            '-filter:a', 'volume=2.0',
-            '-c:v', 'copy',
-            '-y', 'video_boosted.mp4'
-        ], capture_output=True, timeout=120)
-        
-        try:
-            os.remove('video_orig.mp4')
-        except:
-            pass
-        
-        if os.path.exists('video_boosted.mp4'):
-            return 'video_boosted.mp4'
-    except:
-        pass
-    return None
+def boost_music_audio(input_path, output_path):
+    cmd = ['ffmpeg', '-y', '-i', input_path, '-af', 'volume=2.0', output_path]
+    subprocess.run(cmd, capture_output=True)
 
-def download_video_hd(url):
-    try:
-        for f in os.listdir('.'):
-            if f.startswith('video.'):
-                os.remove(f)
-    except:
-        pass
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    user_id = update.effective_user.id
     
-    ydl_opts = {
-        'format': 'bestvideo[height<=1080]+bestaudio/best[height<=1080]/best',
-        'outtmpl': 'video.%(ext)s',
-        'quiet': True,
-        'merge_output_format': 'mp4'
-    }
+    if 'tiktok.com' not in text:
+        return
+    
+    await update.message.reply_text(get_text(user_id, 'downloading'))
+    
+    video_id = extract_video_id(text)
+    if not video_id:
+        await update.message.reply_text(get_text(user_id, 'error'))
+        return
     
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
-        for f in os.listdir('.'):
-            if f.startswith('video.'):
-                return f
-    except:
-        pass
-    return None
-
-def send_audio(chat_id, music_url, caption):
-    audio_file = download_and_boost_audio(music_url)
-    if audio_file:
-        try:
-            with open(audio_file, 'rb') as f:
-                bot.send_audio(chat_id, f, caption=caption, title="TikTok Audio", performer="TikTok")
-        except:
-            pass
-        try:
-            os.remove(audio_file)
-        except:
-            pass
-
-@bot.message_handler(commands=['start'])
-def start(message):
-    bot.reply_to(message, get_text(message.from_user, 'start'))
-
-@bot.message_handler(func=lambda m: 'tiktok.com' in m.text.lower() if m.text else False)
-def handle_tiktok(message):
-    url = message.text.strip()
-    user = message.from_user
-    chat_id = message.chat.id
-    caption = f"Скачано с {BOT_USERNAME}"
-    
-    try:
-        bot.delete_message(chat_id, message.message_id)
-    except:
-        pass
-    
-    status = bot.send_message(chat_id, "⏳")
-    
-    try:
-        data = download_via_tikwm(url)
+        api_url = f"https://tikwm.com/api/?url=https://www.tiktok.com/@user/video/{video_id}"
+        response = requests.get(api_url, timeout=15)
+        data = response.json()
         
-        if data:
-            if data.get('images'):
-                photos = data['images'][:30]
-                
-                local_photos = []
-                for i, photo_url in enumerate(photos):
-                    try:
-                        resp = requests.get(photo_url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=15)
-                        if resp.status_code == 200:
-                            filename = f'photo_{i}.jpg'
-                            with open(filename, 'wb') as f:
-                                f.write(resp.content)
-                            local_photos.append(filename)
-                    except:
-                        pass
-                
+        if data.get('code') != 0:
+            await update.message.reply_text(get_text(user_id, 'error'))
+            return
+        
+        video_data = data.get('data', {})
+        photos = video_data.get('images', [])
+        caption = get_text(user_id, 'caption')
+        
+        if photos:
+            photos = photos[:30]
+            
+            local_photos = []
+            for i, photo_url in enumerate(photos):
+                try:
+                    resp = requests.get(photo_url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=15)
+                    if resp.status_code == 200:
+                        filename = f'photo_{i}.jpg'
+                        with open(filename, 'wb') as f:
+                            f.write(resp.content)
+                        local_photos.append(filename)
+                except:
+                    continue
+            
+            if local_photos:
                 for chunk_start in range(0, len(local_photos), 10):
                     chunk = local_photos[chunk_start:chunk_start + 10]
                     media = []
                     for i, filename in enumerate(chunk):
                         with open(filename, 'rb') as f:
                             photo_bytes = f.read()
-                        if chunk_start == 0 and i == 0:
+                        if i == 0:
                             media.append(InputMediaPhoto(photo_bytes, caption=caption))
                         else:
                             media.append(InputMediaPhoto(photo_bytes))
                     
+                    if media:
+                        await update.message.reply_media_group(media)
+                
+                for filename in local_photos:
                     try:
-                        bot.send_media_group(chat_id, media)
+                        os.remove(filename)
                     except:
                         pass
-                
-                for f in local_photos:
-                    try:
-                        os.remove(f)
-                    except:
-                        pass
-                
-                if data.get('music'):
-                    send_audio(chat_id, data['music'], caption)
-                
-                bot.delete_message(chat_id, status.message_id)
-                return
             
-            video_url = data.get('hdplay') or data.get('play')
+            music_url = video_data.get('music')
+            if music_url:
+                music_resp = requests.get(music_url, timeout=30)
+                if music_resp.status_code == 200:
+                    with open('music.mp3', 'wb') as f:
+                        f.write(music_resp.content)
+                    boost_music_audio('music.mp3', 'music_boosted.mp3')
+                    if os.path.exists('music_boosted.mp3'):
+                        await update.message.reply_audio(open('music_boosted.mp3', 'rb'), caption=caption)
+                        os.remove('music_boosted.mp3')
+                    os.remove('music.mp3')
+        else:
+            video_url = video_data.get('play') or video_data.get('hdplay')
             if video_url:
-                boosted = download_and_boost_video(video_url)
-                if boosted:
-                    try:
-                        with open(boosted, 'rb') as f:
-                            bot.send_video(chat_id, f, caption=caption)
-                        os.remove(boosted)
-                        
-                        if data.get('music'):
-                            send_audio(chat_id, data['music'], caption)
-                        
-                        bot.delete_message(chat_id, status.message_id)
-                        return
-                    except:
-                        try:
-                            os.remove(boosted)
-                        except:
-                            pass
-                
-                try:
-                    bot.send_video(chat_id, video_url, caption=caption)
+                video_resp = requests.get(video_url, timeout=60)
+                if video_resp.status_code == 200:
+                    with open('video.mp4', 'wb') as f:
+                        f.write(video_resp.content)
                     
-                    if data.get('music'):
-                        send_audio(chat_id, data['music'], caption)
+                    boost_audio('video.mp4', 'video_boosted.mp4')
                     
-                    bot.delete_message(chat_id, status.message_id)
-                    return
-                except:
-                    pass
-        
-        video_file = download_video_hd(url)
-        if video_file:
-            with open(video_file, 'rb') as f:
-                bot.send_video(chat_id, f, caption=caption)
-            os.remove(video_file)
-            bot.delete_message(chat_id, status.message_id)
-            return
-        
-        bot.delete_message(chat_id, status.message_id)
-        bot.send_message(chat_id, get_text(user, 'error'))
-        
-    except:
-        bot.delete_message(chat_id, status.message_id)
-        bot.send_message(chat_id, get_text(user, 'error'))
+                    if os.path.exists('video_boosted.mp4'):
+                        await update.message.reply_video(open('video_boosted.mp4', 'rb'), caption=caption)
+                        os.remove('video_boosted.mp4')
+                    else:
+                        await update.message.reply_video(open('video.mp4', 'rb'), caption=caption)
+                    os.remove('video.mp4')
+    except Exception as e:
+        await update.message.reply_text(f"{get_text(user_id, 'error')}: {str(e)}")
 
-if __name__ == "__main__":
-    bot.polling(none_stop=True)
+def main():
+    app = Application.builder().token(BOT_TOKEN).build()
+    app.add_handler(CommandHandler("start", start_command))
+    app.add_handler(CallbackQueryHandler(language_callback, pattern="^lang_"))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.run_polling(drop_pending_updates=True)
+
+if __name__ == '__main__':
+    main()
     
