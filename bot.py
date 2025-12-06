@@ -3,7 +3,6 @@ from telebot.types import InputMediaPhoto
 import yt_dlp
 import requests
 import os
-import subprocess
 
 BOT_TOKEN = "8347415373:AAE86SZs9sHvHXIiNPv5h_1tPZf6hmLYGjI"
 bot = telebot.TeleBot(BOT_TOKEN)
@@ -30,15 +29,29 @@ def download_via_tikwm(url):
         data = resp.json()
         if data.get('code') == 0:
             d = data.get('data', {})
-            return {'images': d.get('images', []), 'music': d.get('music')}
+            return {
+                'images': d.get('images', []),
+                'music': d.get('music'),
+                'hdplay': d.get('hdplay'),
+                'play': d.get('play')
+            }
     except:
         pass
     return None
 
-def download_video_yt(url):
+def download_audio(url):
+    try:
+        resp = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=30)
+        with open('audio.mp3', 'wb') as f:
+            f.write(resp.content)
+        return 'audio.mp3'
+    except:
+        return None
+
+def download_video_hd(url):
     try:
         for f in os.listdir('.'):
-            if f.startswith('video.') or f.startswith('audio.'):
+            if f.startswith('video.'):
                 os.remove(f)
     except:
         pass
@@ -60,26 +73,18 @@ def download_video_yt(url):
         pass
     return None
 
-def extract_audio(video_file):
-    audio_file = 'audio.aac'
-    try:
-        subprocess.run([
-            'ffmpeg', '-i', video_file, '-vn', '-acodec', 'copy', audio_file, '-y'
-        ], capture_output=True, timeout=60)
-        if os.path.exists(audio_file):
-            return audio_file
-    except:
-        pass
-    return None
-
-def download_audio(url):
-    try:
-        resp = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=30)
-        with open('audio.mp3', 'wb') as f:
-            f.write(resp.content)
-        return 'audio.mp3'
-    except:
-        return None
+def send_audio(chat_id, music_url, caption):
+    audio_file = download_audio(music_url)
+    if audio_file:
+        try:
+            with open(audio_file, 'rb') as f:
+                bot.send_audio(chat_id, f, caption=caption, title="TikTok Audio", performer="TikTok")
+        except:
+            pass
+        try:
+            os.remove(audio_file)
+        except:
+            pass
 
 @bot.message_handler(commands=['start'])
 def start(message):
@@ -102,43 +107,46 @@ def handle_tiktok(message):
     try:
         data = download_via_tikwm(url)
         
-        if data and data.get('images'):
-            photos = data['images']
+        if data:
+            if data.get('images'):
+                photos = data['images']
+                
+                media = []
+                for i, photo_url in enumerate(photos):
+                    if i == 0:
+                        media.append(InputMediaPhoto(photo_url, caption=caption))
+                    else:
+                        media.append(InputMediaPhoto(photo_url))
+                
+                try:
+                    bot.send_media_group(chat_id, media)
+                except:
+                    for photo_url in photos:
+                        bot.send_photo(chat_id, photo_url)
+                
+                if data.get('music'):
+                    send_audio(chat_id, data['music'], caption)
+                
+                bot.delete_message(chat_id, status.message_id)
+                return
             
-            media = []
-            for i, photo_url in enumerate(photos):
-                if i == 0:
-                    media.append(InputMediaPhoto(photo_url, caption=caption))
-                else:
-                    media.append(InputMediaPhoto(photo_url))
-            
-            try:
-                bot.send_media_group(chat_id, media)
-            except:
-                for photo_url in photos:
-                    bot.send_photo(chat_id, photo_url)
-            
-            if data.get('music'):
-                audio_file = download_audio(data['music'])
-                if audio_file:
-                    with open(audio_file, 'rb') as f:
-                        bot.send_audio(chat_id, f, caption=caption, title="TikTok Audio", performer="TikTok")
-                    os.remove(audio_file)
-            
-            bot.delete_message(chat_id, status.message_id)
-            return
+            video_url = data.get('hdplay') or data.get('play')
+            if video_url:
+                try:
+                    bot.send_video(chat_id, video_url, caption=caption)
+                    
+                    if data.get('music'):
+                        send_audio(chat_id, data['music'], caption)
+                    
+                    bot.delete_message(chat_id, status.message_id)
+                    return
+                except:
+                    pass
         
-        video_file = download_video_yt(url)
+        video_file = download_video_hd(url)
         if video_file:
             with open(video_file, 'rb') as f:
                 bot.send_video(chat_id, f, caption=caption)
-            
-            audio_file = extract_audio(video_file)
-            if audio_file:
-                with open(audio_file, 'rb') as f:
-                    bot.send_audio(chat_id, f, caption=caption, title="TikTok Audio", performer="TikTok")
-                os.remove(audio_file)
-            
             os.remove(video_file)
             bot.delete_message(chat_id, status.message_id)
             return
