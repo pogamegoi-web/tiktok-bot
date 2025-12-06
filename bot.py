@@ -10,36 +10,36 @@ user_lang = {}
 
 texts = {
     'ru': {
-        'start': '👋 Привет! Отправь мне ссылку из TikTok',
-        'downloading': '⏳ Скачиваю...',
+        'start': '👋 Привет! Отправь мне ссылку из TikTok\n\n📹 Видео и фото в HD качестве\n🎵 Музыка отправляется отдельно',
+        'downloading': '⏳ Скачиваю в HD...',
         'success': '✅ Готово!',
         'error': '❌ Не удалось скачать',
         'lang_set': '✅ Русский'
     },
     'en': {
-        'start': '👋 Hi! Send me a TikTok link',
-        'downloading': '⏳ Downloading...',
+        'start': '👋 Hi! Send me a TikTok link\n\n📹 Videos and photos in HD quality\n🎵 Music sent separately',
+        'downloading': '⏳ Downloading in HD...',
         'success': '✅ Done!',
         'error': '❌ Failed to download',
         'lang_set': '✅ English'
     },
     'kz': {
-        'start': '👋 Сәлем! TikTok сілтемесін жібер',
-        'downloading': '⏳ Жүктелуде...',
+        'start': '👋 Сәлем! TikTok сілтемесін жібер\n\n📹 Видео мен фото HD сапада\n🎵 Музыка бөлек жіберіледі',
+        'downloading': '⏳ HD жүктелуде...',
         'success': '✅ Дайын!',
         'error': '❌ Жүктеу сәтсіз',
         'lang_set': '✅ Қазақша'
     },
     'ua': {
-        'start': '👋 Привіт! Надішли посилання з TikTok',
-        'downloading': '⏳ Завантажую...',
+        'start': '👋 Привіт! Надішли посилання з TikTok\n\n📹 Відео та фото в HD якості\n🎵 Музика надсилається окремо',
+        'downloading': '⏳ Завантажую в HD...',
         'success': '✅ Готово!',
         'error': '❌ Не вдалося завантажити',
         'lang_set': '✅ Українська'
     },
     'uz': {
-        'start': '👋 Salom! TikTok havolasini yubor',
-        'downloading': '⏳ Yuklanmoqda...',
+        'start': '👋 Salom! TikTok havolasini yubor\n\n📹 Video va rasmlar HD sifatda\n🎵 Musiqa alohida yuboriladi',
+        'downloading': '⏳ HD yuklanmoqda...',
         'success': '✅ Tayyor!',
         'error': '❌ Yuklab bo\'lmadi',
         'lang_set': '✅ O\'zbek'
@@ -49,9 +49,10 @@ texts = {
 def get_text(user_id, key):
     return texts[user_lang.get(user_id, 'ru')][key]
 
-def download_via_tikwm(url):
+def download_via_tikwm(url, hd=True):
     try:
-        api_url = f"https://www.tikwm.com/api/?url={url}"
+        # hd=1 для HD качества
+        api_url = f"https://www.tikwm.com/api/?url={url}&hd=1"
         headers = {'User-Agent': 'Mozilla/5.0'}
         resp = requests.get(api_url, headers=headers, timeout=30)
         data = resp.json()
@@ -61,23 +62,25 @@ def download_via_tikwm(url):
             return {
                 'images': d.get('images', []),
                 'music': d.get('music'),
-                'play': d.get('play'),
+                'hdplay': d.get('hdplay'),  # HD видео
+                'play': d.get('play'),       # обычное видео
                 'duration': d.get('duration', 0)
             }
     except:
         pass
     return None
 
-def download_video(url):
+def download_video_hd(url):
     try:
         for f in os.listdir('.'):
             if f.startswith('video.'):
                 os.remove(f)
         
         ydl_opts = {
-            'format': 'best',
+            'format': 'bestvideo[height<=1080]+bestaudio/best[height<=1080]/best',
             'outtmpl': 'video.%(ext)s',
-            'quiet': True
+            'quiet': True,
+            'merge_output_format': 'mp4'
         }
         
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -134,7 +137,7 @@ def handle_message(message):
         tikwm = download_via_tikwm(url)
         
         if tikwm:
-            # Если есть images - это фото/карусель/история
+            # Фото/карусель/история
             if tikwm['images']:
                 downloaded = []
                 for i, img_url in enumerate(tikwm['images'][:10]):
@@ -157,15 +160,30 @@ def handle_message(message):
                         bot.send_media_group(message.chat.id, media)
                     success = True
             
-            # Это видео
+            # Видео - сначала HD, потом обычное
             else:
-                video = download_video(url)
-                if video:
-                    with open(video, 'rb') as f:
-                        bot.send_video(message.chat.id, f)
-                    success = True
+                video_url = tikwm.get('hdplay') or tikwm.get('play')
+                if video_url:
+                    try:
+                        resp = requests.get(video_url, headers=headers, timeout=120)
+                        if resp.status_code == 200 and len(resp.content) > 10000:
+                            with open('video.mp4', 'wb') as f:
+                                f.write(resp.content)
+                            with open('video.mp4', 'rb') as f:
+                                bot.send_video(message.chat.id, f)
+                            success = True
+                    except:
+                        pass
+                
+                # Fallback на yt-dlp HD
+                if not success:
+                    video = download_video_hd(url)
+                    if video:
+                        with open(video, 'rb') as f:
+                            bot.send_video(message.chat.id, f)
+                        success = True
             
-            # Отправляем музыку для любого контента
+            # Музыка
             if tikwm['music']:
                 try:
                     resp = requests.get(tikwm['music'], headers=headers, timeout=30)
@@ -179,7 +197,7 @@ def handle_message(message):
         
         # Fallback
         if not success:
-            video = download_video(url)
+            video = download_video_hd(url)
             if video:
                 with open(video, 'rb') as f:
                     bot.send_video(message.chat.id, f)
@@ -198,4 +216,4 @@ def handle_message(message):
 if __name__ == "__main__":
     print("Bot started...")
     bot.infinity_polling()
-    
+                                           
