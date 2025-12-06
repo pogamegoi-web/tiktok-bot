@@ -79,14 +79,17 @@ def download_tiktok_photos(url):
         html = response.text
         
         photos = []
-        pattern = r'"imageURL":\s*\{[^}]*"urlList":\s*\[\s*"([^"]+)"'
-        matches = re.findall(pattern, html)
         
-        for m in matches:
-            clean_url = m.replace('\\u002F', '/').replace('\\/', '/')
-            if clean_url.startswith('http') and clean_url not in photos:
-                lower = clean_url.lower()
-                if 'cover' not in lower and 'thumb' not in lower and 'avatar' not in lower:
+        # Ищем ТОЛЬКО imagePost (реальные фото карусели)
+        pattern = r'"imagePost".*?"images":\s*\[(.*?)\]'
+        match = re.search(pattern, html, re.DOTALL)
+        if match:
+            images_data = match.group(1)
+            url_pattern = r'"urlList":\s*\[\s*"([^"]+)"'
+            matches = re.findall(url_pattern, images_data)
+            for m in matches:
+                clean_url = m.replace('\\u002F', '/').replace('\\/', '/')
+                if clean_url.startswith('http') and clean_url not in photos:
                     photos.append(clean_url)
         
         if not photos:
@@ -97,18 +100,15 @@ def download_tiktok_photos(url):
         
         for i, photo_url in enumerate(photos[:15]):
             try:
+                # Пропускаем cover/origin изображения
+                lower = photo_url.lower()
+                if 'origin' in lower or 'cover' in lower or 'music' in lower:
+                    continue
+                
                 resp = requests.get(photo_url, headers=headers, timeout=30)
                 if resp.status_code == 200:
                     content = resp.content
                     size = len(content)
-                    
-                    # Проверка magic bytes - только изображения
-                    is_jpeg = content[:2] == b'\xff\xd8'
-                    is_png = content[:4] == b'\x89PNG'
-                    is_webp = len(content) > 12 and content[8:12] == b'WEBP'
-                    
-                    if not (is_jpeg or is_png or is_webp):
-                        continue
                     
                     if size < 10000 or size in seen_sizes:
                         continue
@@ -167,14 +167,12 @@ def handle_message(message):
     cleanup()
     
     try:
-        # Сначала пробуем видео
         video = download_video(url)
         if video:
             with open(video, 'rb') as f:
                 bot.send_video(message.chat.id, f)
             bot.edit_message_text(get_text(user_id, 'success'), message.chat.id, status.message_id)
         else:
-            # Если видео нет - это фото-карусель
             photos = download_tiktok_photos(url)
             if photos:
                 if len(photos) == 1:
