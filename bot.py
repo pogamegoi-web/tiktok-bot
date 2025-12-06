@@ -50,16 +50,6 @@ texts = {
 def get_text(user_id, key):
     return texts[user_lang.get(user_id, 'ru')][key]
 
-def get_tiktok_info(url):
-    """Получает инфо через yt-dlp без скачивания"""
-    try:
-        ydl_opts = {'quiet': True, 'no_warnings': True}
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-            return info
-    except:
-        return None
-
 def download_video(url):
     try:
         for f in os.listdir('.'):
@@ -82,48 +72,48 @@ def download_video(url):
         pass
     return None
 
+def download_via_tikwm(url):
+    """Скачивает через tikwm.com API"""
+    try:
+        api_url = f"https://www.tikwm.com/api/?url={url}"
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        
+        resp = requests.get(api_url, headers=headers, timeout=30)
+        data = resp.json()
+        
+        if data.get('code') == 0:
+            result = data.get('data', {})
+            
+            photos = []
+            audio_url = None
+            video_url = None
+            
+            # Проверяем есть ли images (карусель/история с фото)
+            images = result.get('images', [])
+            if images:
+                for img_url in images:
+                    photos.append(img_url)
+            
+            # Если нет images, берём cover
+            if not photos and result.get('cover'):
+                photos.append(result['cover'])
+            
+            # Аудио
+            if result.get('music'):
+                audio_url = result['music']
+            
+            # Видео
+            if result.get('play'):
+                video_url = result['play']
+            
+            return {'photos': photos, 'audio': audio_url, 'video': video_url}
+    except:
+        pass
+    return None
+
 def download_tiktok_photos(url):
     headers = {'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)'}
     
-    # Сначала пробуем получить через yt-dlp
-    try:
-        info = get_tiktok_info(url)
-        if info:
-            photos = []
-            
-            # Ищем изображения в thumbnails
-            for thumb in info.get('thumbnails', []):
-                thumb_url = thumb.get('url', '')
-                if thumb_url and thumb_url not in photos:
-                    photos.append(thumb_url)
-            
-            # Ищем в других полях
-            for key in ['thumbnail', 'cover']:
-                if info.get(key):
-                    photos.append(info[key])
-            
-            if photos:
-                downloaded = []
-                best_size = 0
-                best_content = None
-                
-                for photo_url in photos:
-                    try:
-                        resp = requests.get(photo_url, headers=headers, timeout=30)
-                        if resp.status_code == 200 and len(resp.content) > best_size:
-                            best_size = len(resp.content)
-                            best_content = resp.content
-                    except:
-                        continue
-                
-                if best_content and best_size > 5000:
-                    with open('photo_0.jpg', 'wb') as f:
-                        f.write(best_content)
-                    return ['photo_0.jpg']
-    except:
-        pass
-    
-    # Fallback - парсим HTML
     try:
         response = requests.get(url, headers=headers, timeout=30, allow_redirects=True)
         html = response.text
@@ -132,7 +122,6 @@ def download_tiktok_photos(url):
         patterns = [
             r'"imageURL"[^}]*"urlList":\s*\[\s*"([^"]+)"',
             r'"originCover":\s*"([^"]+)"',
-            r'"cover":\s*"([^"]+)"',
             r'property="og:image"\s+content="([^"]+)"',
         ]
         
@@ -237,31 +226,89 @@ def handle_message(message):
     
     status = bot.reply_to(message, get_text(user_id, 'downloading'))
     cleanup()
+    headers = {'User-Agent': 'Mozilla/5.0'}
     
     try:
-        video = download_video(url)
-        if video:
-            with open(video, 'rb') as f:
-                bot.send_video(message.chat.id, f)
+        success = False
+        
+        # Сначала пробуем через tikwm API
+        tikwm = download_via_tikwm(url)
+        if tikwm:
+            # Если есть видео - отправляем
+            if tikwm['video']:
+                try:
+                    resp = requests.get(tikwm['video'], headers=headers, timeout=60)
+                    if resp.status_code == 200:
+                        with open('video.mp4', 'wb') as f:
+                            f.write(resp.content)
+                        with open('video.mp4', 'rb') as f:
+                            bot.send_video(message.chat.id, f)
+                        success = True
+                except:
+                    pass
+            
+            # Если есть фото
+            if not success and tikwm['photos']:
+                downloaded = []
+                for i, photo_url in enumerate(tikwm['photos'][:10]):
+                    try:
+                        resp = requests.get(photo_url, headers=headers, timeout=30)
+                        if resp.status_code == 200:
+                            filename = f"photo_{i}.jpg"
+                            with open(filename, 'wb') as f:
+                                f.write(resp.content)
+                            downloaded.append(filename)
+                    except:
+                        continue
+                
+                if downloaded:
+                    if len(downloaded) == 1:
+                        with open(downloaded[0], 'rb') as f:
+                            bot.send_photo(message.chat.id, f)
+                    else:
+                        media = [telebot.types.InputMediaPhoto(open(p, 'rb')) for p in downloaded]
+                        bot.send_media_group(message.chat.id, media)
+                    success = True
+            
+            # Отправляем аудио
+            if tikwm['audio']:
+                try:
+                    resp = requests.get(tikwm['audio'], headers=headers, timeout=30)
+                    if resp.status_code == 200 and len(resp.content) > 5000:
+                        with open('audio.mp3', 'wb') as f:
+                            f.write(resp.content)
+                        with open('audio.mp3', 'rb') as f:
+                            bot.send_audio(message.chat.id, f, title="TikTok Audio")
+                except:
+                    pass
+        
+        # Fallback на yt-dlp
+        if not success:
+            video = download_video(url)
+            if video:
+                with open(video, 'rb') as f:
+                    bot.send_video(message.chat.id, f)
+                success = True
+            else:
+                photos = download_tiktok_photos(url)
+                if photos:
+                    if len(photos) == 1:
+                        with open(photos[0], 'rb') as f:
+                            bot.send_photo(message.chat.id, f)
+                    else:
+                        media = [telebot.types.InputMediaPhoto(open(p, 'rb')) for p in photos]
+                        bot.send_media_group(message.chat.id, media)
+                    
+                    audio = download_tiktok_audio(url)
+                    if audio:
+                        with open(audio, 'rb') as f:
+                            bot.send_audio(message.chat.id, f, title="TikTok Audio")
+                    success = True
+        
+        if success:
             bot.edit_message_text(get_text(user_id, 'success'), message.chat.id, status.message_id)
         else:
-            photos = download_tiktok_photos(url)
-            if photos:
-                if len(photos) == 1:
-                    with open(photos[0], 'rb') as f:
-                        bot.send_photo(message.chat.id, f)
-                else:
-                    media = [telebot.types.InputMediaPhoto(open(p, 'rb')) for p in photos]
-                    bot.send_media_group(message.chat.id, media)
-                
-                audio = download_tiktok_audio(url)
-                if audio:
-                    with open(audio, 'rb') as f:
-                        bot.send_audio(message.chat.id, f, title="TikTok Audio")
-                
-                bot.edit_message_text(get_text(user_id, 'success'), message.chat.id, status.message_id)
-            else:
-                bot.edit_message_text(get_text(user_id, 'error'), message.chat.id, status.message_id)
+            bot.edit_message_text(get_text(user_id, 'error'), message.chat.id, status.message_id)
     except Exception as e:
         print(f"Error: {e}")
         bot.edit_message_text(get_text(user_id, 'error'), message.chat.id, status.message_id)
@@ -271,4 +318,3 @@ def handle_message(message):
 if __name__ == "__main__":
     print("Bot started...")
     bot.infinity_polling()
-                    
