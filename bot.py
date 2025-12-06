@@ -11,82 +11,48 @@ ADMIN_ID = 6272691860
 FACEBOOK_COOKIES = "facebook_cookies.txt"
 
 bot = telebot.TeleBot(BOT_TOKEN)
-
 user_lang = {}
 
 texts = {
-    'ru': {
-        'start': '👋 Привет! Отправь мне ссылку на видео или фото из:\n\n• TikTok (видео, фото, истории)\n• Instagram (видео, фото, истории, Reels)\n• YouTube (видео, Shorts)\n• Facebook (видео, фото, истории)\n\n📹 Видео скачиваются в HD 1080p\n🎵 Музыка отправляется отдельно',
-        'downloading': '⏳ Скачиваю...',
-        'success': '✅ Готово!',
-        'error': '❌ Не удалось скачать. Проверь ссылку.',
-        'invalid_link': '❌ Отправь корректную ссылку',
-        'lang_set': '✅ Язык изменён на Русский'
-    },
-    'en': {
-        'start': '👋 Hi! Send me a link to video or photo from:\n\n• TikTok (videos, photos, stories)\n• Instagram (videos, photos, stories, Reels)\n• YouTube (videos, Shorts)\n• Facebook (videos, photos, stories)\n\n📹 Videos downloaded in HD 1080p\n🎵 Music sent separately',
-        'downloading': '⏳ Downloading...',
-        'success': '✅ Done!',
-        'error': '❌ Failed to download. Check the link.',
-        'invalid_link': '❌ Send a valid link',
-        'lang_set': '✅ Language changed to English'
-    },
-    'kz': {
-        'start': '👋 Сәлем! Маған видео немесе фото сілтемесін жібер:\n\n• TikTok (видео, фото, stories)\n• Instagram (видео, фото, stories, Reels)\n• YouTube (видео, Shorts)\n• Facebook (видео, фото, stories)\n\n📹 Видео HD 1080p форматында жүктеледі\n🎵 Музыка бөлек жіберіледі',
-        'downloading': '⏳ Жүктелуде...',
-        'success': '✅ Дайын!',
-        'error': '❌ Жүктеу сәтсіз. Сілтемені тексер.',
-        'invalid_link': '❌ Дұрыс сілтеме жібер',
-        'lang_set': '✅ Тіл Қазақшаға өзгертілді'
-    },
-    'ua': {
-        'start': '👋 Привіт! Надішли мені посилання на відео або фото з:\n\n• TikTok (відео, фото, історії)\n• Instagram (відео, фото, історії, Reels)\n• YouTube (відео, Shorts)\n• Facebook (відео, фото, історії)\n\n📹 Відео завантажуються в HD 1080p\n🎵 Музика надсилається окремо',
-        'downloading': '⏳ Завантажую...',
-        'success': '✅ Готово!',
-        'error': '❌ Не вдалося завантажити. Перевір посилання.',
-        'invalid_link': '❌ Надішли коректне посилання',
-        'lang_set': '✅ Мову змінено на Українську'
-    },
-    'uz': {
-        'start': '👋 Salom! Menga video yoki rasm havolasini yubor:\n\n• TikTok (video, rasm, stories)\n• Instagram (video, rasm, stories, Reels)\n• YouTube (video, Shorts)\n• Facebook (video, rasm, stories)\n\n📹 Videolar HD 1080p formatida yuklanadi\n🎵 Musiqa alohida yuboriladi',
-        'downloading': '⏳ Yuklanmoqda...',
-        'success': '✅ Tayyor!',
-        'error': '❌ Yuklab bo\'lmadi. Havolani tekshir.',
-        'invalid_link': '❌ To\'g\'ri havola yubor',
-        'lang_set': '✅ Til O\'zbekchaga o\'zgartirildi'
-    }
+    'ru': {'start': '👋 Привет! Отправь мне ссылку на видео или фото из:\n\n• TikTok (видео, фото, истории)\n• Instagram (видео, фото, истории, Reels)\n• YouTube (видео, Shorts)\n• Facebook (видео, фото, истории)\n\n📹 Видео в HD 1080p\n🎵 Музыка отдельно', 'downloading': '⏳ Скачиваю...', 'success': '✅ Готово!', 'error': '❌ Ошибка', 'invalid_link': '❌ Неверная ссылка', 'lang_set': '✅ Русский'},
+    'en': {'start': '👋 Hi! Send me a link from:\n\n• TikTok\n• Instagram\n• YouTube\n• Facebook\n\n📹 HD 1080p\n🎵 Music separately', 'downloading': '⏳ Downloading...', 'success': '✅ Done!', 'error': '❌ Error', 'invalid_link': '❌ Invalid link', 'lang_set': '✅ English'},
+    'kz': {'start': '👋 Сәлем! Сілтеме жібер:\n\n• TikTok\n• Instagram\n• YouTube\n• Facebook', 'downloading': '⏳ Жүктелуде...', 'success': '✅ Дайын!', 'error': '❌ Қате', 'invalid_link': '❌ Қате сілтеме', 'lang_set': '✅ Қазақша'},
+    'ua': {'start': '👋 Привіт! Надішли посилання:\n\n• TikTok\n• Instagram\n• YouTube\n• Facebook', 'downloading': '⏳ Завантажую...', 'success': '✅ Готово!', 'error': '❌ Помилка', 'invalid_link': '❌ Невірне посилання', 'lang_set': '✅ Українська'},
+    'uz': {'start': '👋 Salom! Havola yubor:\n\n• TikTok\n• Instagram\n• YouTube\n• Facebook', 'downloading': '⏳ Yuklanmoqda...', 'success': '✅ Tayyor!', 'error': '❌ Xato', 'invalid_link': '❌ Noto\'g\'ri havola', 'lang_set': '✅ O\'zbek'}
 }
 
 def get_text(user_id, key):
-    lang = user_lang.get(user_id, 'ru')
-    return texts[lang][key]
+    return texts[user_lang.get(user_id, 'ru')][key]
 
-def get_video_info(video_path):
+def get_video_info(path):
     try:
-        cmd = ['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_streams', '-show_format', video_path]
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        data = json.loads(result.stdout)
-        width, height, duration = None, None, None
-        for stream in data.get('streams', []):
-            if stream.get('codec_type') == 'video':
-                width = stream.get('width')
-                height = stream.get('height')
+        r = subprocess.run(['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_streams', '-show_format', path], capture_output=True, text=True)
+        d = json.loads(r.stdout)
+        w, h, dur = None, None, None
+        for s in d.get('streams', []):
+            if s.get('codec_type') == 'video':
+                w, h = s.get('width'), s.get('height')
                 break
-        if 'format' in data:
-            dur = data['format'].get('duration')
-            if dur:
-                duration = int(float(dur))
-        return width, height, duration
+        if 'format' in d and d['format'].get('duration'):
+            dur = int(float(d['format']['duration']))
+        return w, h, dur
     except:
         return None, None, None
 
+def get_audio_duration(path):
+    try:
+        r = subprocess.run(['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_format', path], capture_output=True, text=True)
+        d = json.loads(r.stdout)
+        if 'format' in d and d['format'].get('duration'):
+            return int(float(d['format']['duration']))
+    except:
+        pass
+    return None
+
 def extract_audio(video_path):
-    """Извлекает аудио из видео в MP3 БЕЗ изменения громкости"""
     try:
         audio_path = "audio_extracted.mp3"
-        # Без нормализации - оригинальная громкость
-        cmd = ['ffmpeg', '-y', '-i', video_path, '-vn', '-acodec', 'libmp3lame', '-ab', '192k', audio_path]
-        subprocess.run(cmd, capture_output=True, timeout=120)
+        subprocess.run(['ffmpeg', '-y', '-i', video_path, '-vn', '-acodec', 'libmp3lame', '-ab', '192k', audio_path], capture_output=True, timeout=120)
         if os.path.exists(audio_path) and os.path.getsize(audio_path) > 1000:
             return audio_path
     except:
@@ -94,47 +60,48 @@ def extract_audio(video_path):
     return None
 
 def download_tiktok_audio(url):
-    """Скачивает только аудио из TikTok (для фото-каруселей)"""
+    """Скачивает музыку из TikTok слайдшоу"""
     try:
+        # Удаляем старые файлы
+        for f in os.listdir('.'):
+            if f.startswith('slideshow_') or f.startswith('tiktok_audio'):
+                try: os.remove(f)
+                except: pass
+        
+        # Скачиваем слайдшоу как видео
         ydl_opts = {
-            'format': 'bestaudio/best',
-            'outtmpl': 'tiktok_audio.%(ext)s',
+            'format': 'best',
+            'outtmpl': 'slideshow_video.%(ext)s',
             'quiet': True,
             'no_warnings': True,
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '192',
-            }],
         }
-        # Удаляем старые аудио файлы
-        for f in os.listdir('.'):
-            if f.startswith('tiktok_audio'):
-                os.remove(f)
-        
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
         
-        # Ищем скачанный аудио файл
+        # Ищем скачанный файл
+        video_file = None
         for f in os.listdir('.'):
-            if f.startswith('tiktok_audio') and f.endswith('.mp3'):
-                return f
+            if f.startswith('slideshow_video'):
+                video_file = f
+                break
+        
+        if not video_file:
+            return None
+        
+        # Извлекаем аудио
+        audio_path = "tiktok_audio.mp3"
+        subprocess.run(['ffmpeg', '-y', '-i', video_file, '-vn', '-acodec', 'libmp3lame', '-ab', '192k', audio_path], capture_output=True, timeout=120)
+        
+        # Удаляем видео
+        try: os.remove(video_file)
+        except: pass
+        
+        if os.path.exists(audio_path) and os.path.getsize(audio_path) > 1000:
+            return audio_path
         return None
-    except:
+    except Exception as e:
+        print(f"Audio error: {e}")
         return None
-
-def get_audio_duration(audio_path):
-    try:
-        cmd = ['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_format', audio_path]
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        data = json.loads(result.stdout)
-        if 'format' in data:
-            dur = data['format'].get('duration')
-            if dur:
-                return int(float(dur))
-    except:
-        pass
-    return None
 
 def get_facebook_cookies():
     cookies = {}
@@ -146,13 +113,11 @@ def get_facebook_cookies():
                         parts = line.strip().split('\t')
                         if len(parts) >= 7:
                             cookies[parts[5]] = parts[6]
-        except:
-            pass
+        except: pass
     return cookies
 
 def is_valid_url(url):
-    platforms = ['tiktok.com', 'vm.tiktok.com', 'instagram.com', 'youtube.com', 'youtu.be', 'facebook.com', 'fb.watch']
-    return any(p in url.lower() for p in platforms)
+    return any(p in url.lower() for p in ['tiktok.com', 'vm.tiktok.com', 'instagram.com', 'youtube.com', 'youtu.be', 'facebook.com', 'fb.watch'])
 
 def is_tiktok_url(url):
     return 'tiktok.com' in url.lower() or 'vm.tiktok.com' in url.lower()
@@ -167,20 +132,16 @@ def is_facebook_url(url):
     return 'facebook.com' in url.lower() or 'fb.watch' in url.lower()
 
 def download_tiktok_photos(url):
-    """Скачивает ТОЛЬКО фото из карусели TikTok (без обложек)"""
     try:
         headers = {'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15'}
         response = requests.get(url, headers=headers, timeout=30, allow_redirects=True)
         html = response.text
         photos = []
-        patterns = [r'"imageURL":\s*\{[^}]*"urlList":\s*\[\s*"([^"]+)"']
-        for pattern in patterns:
-            matches = re.findall(pattern, html)
-            for match in matches:
-                clean_url = match.replace('\\u002F', '/').replace('\\/', '/')
-                if clean_url.startswith('http') and clean_url not in photos:
-                    if 'cover' not in clean_url.lower() and 'thumb' not in clean_url.lower():
-                        photos.append(clean_url)
+        for match in re.findall(r'"imageURL":\s*\{[^}]*"urlList":\s*\[\s*"([^"]+)"', html):
+            clean_url = match.replace('\\u002F', '/').replace('\\/', '/')
+            if clean_url.startswith('http') and clean_url not in photos:
+                if 'cover' not in clean_url.lower() and 'thumb' not in clean_url.lower():
+                    photos.append(clean_url)
         if not photos:
             return None
         downloaded = []
@@ -190,68 +151,54 @@ def download_tiktok_photos(url):
                 resp = requests.get(photo_url, headers=headers, timeout=30)
                 if resp.status_code == 200 and len(resp.content) > 5000:
                     size = len(resp.content)
-                    if size in seen_sizes:
-                        continue
-                    seen_sizes.add(size)
-                    ext = 'jpg'
-                    if 'webp' in photo_url:
-                        ext = 'webp'
-                    filename = f"tiktok_photo_{i}.{ext}"
-                    with open(filename, 'wb') as f:
-                        f.write(resp.content)
-                    downloaded.append(filename)
-            except:
-                continue
+                    if size not in seen_sizes:
+                        seen_sizes.add(size)
+                        ext = 'webp' if 'webp' in photo_url else 'jpg'
+                        filename = f"tiktok_photo_{i}.{ext}"
+                        with open(filename, 'wb') as f:
+                            f.write(resp.content)
+                        downloaded.append(filename)
+            except: continue
         return downloaded if downloaded else None
     except:
         return None
 
 def download_instagram_content(url):
     try:
-        headers = {'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15', 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'}
+        headers = {'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15'}
         response = requests.get(url, headers=headers, timeout=30)
         html = response.text
-        photos = []
-        videos = []
-        img_patterns = [r'"display_url":\s*"([^"]+)"', r'property="og:image"\s+content="([^"]+)"']
-        for pattern in img_patterns:
-            matches = re.findall(pattern, html)
-            for match in matches:
-                clean_url = match.replace('\\u0026', '&').replace('\\/', '/')
-                if ('instagram' in clean_url or 'cdninstagram' in clean_url) and clean_url not in photos:
-                    photos.append(clean_url)
-        video_patterns = [r'"video_url":\s*"([^"]+)"', r'property="og:video"\s+content="([^"]+)"']
-        for pattern in video_patterns:
-            matches = re.findall(pattern, html)
-            for match in matches:
-                clean_url = match.replace('\\u0026', '&').replace('\\/', '/')
-                if clean_url not in videos:
-                    videos.append(clean_url)
-        downloaded = []
-        for i, video_url in enumerate(videos[:3]):
+        photos, videos, downloaded = [], [], []
+        for pattern in [r'"display_url":\s*"([^"]+)"', r'property="og:image"\s+content="([^"]+)"']:
+            for match in re.findall(pattern, html):
+                clean = match.replace('\\u0026', '&').replace('\\/', '/')
+                if ('instagram' in clean or 'cdninstagram' in clean) and clean not in photos:
+                    photos.append(clean)
+        for pattern in [r'"video_url":\s*"([^"]+)"', r'property="og:video"\s+content="([^"]+)"']:
+            for match in re.findall(pattern, html):
+                clean = match.replace('\\u0026', '&').replace('\\/', '/')
+                if clean not in videos:
+                    videos.append(clean)
+        for i, v in enumerate(videos[:3]):
             try:
-                resp = requests.get(video_url, headers=headers, timeout=60)
+                resp = requests.get(v, headers=headers, timeout=60)
                 if resp.status_code == 200:
-                    filename = f"instagram_video_{i}.mp4"
-                    with open(filename, 'wb') as f:
-                        f.write(resp.content)
-                    downloaded.append(('video', filename))
-            except:
-                continue
-        seen_sizes = set()
-        for i, photo_url in enumerate(photos[:10]):
+                    fn = f"instagram_video_{i}.mp4"
+                    with open(fn, 'wb') as f: f.write(resp.content)
+                    downloaded.append(('video', fn))
+            except: continue
+        seen = set()
+        for i, p in enumerate(photos[:10]):
             try:
-                resp = requests.get(photo_url, headers=headers, timeout=30)
+                resp = requests.get(p, headers=headers, timeout=30)
                 if resp.status_code == 200:
                     size = len(resp.content)
-                    if size > 10000 and size not in seen_sizes:
-                        seen_sizes.add(size)
-                        filename = f"instagram_photo_{i}.jpg"
-                        with open(filename, 'wb') as f:
-                            f.write(resp.content)
-                        downloaded.append(('photo', filename))
-            except:
-                continue
+                    if size > 10000 and size not in seen:
+                        seen.add(size)
+                        fn = f"instagram_photo_{i}.jpg"
+                        with open(fn, 'wb') as f: f.write(resp.content)
+                        downloaded.append(('photo', fn))
+            except: continue
         return downloaded if downloaded else None
     except:
         return None
@@ -259,82 +206,66 @@ def download_instagram_content(url):
 def download_facebook_content(url):
     try:
         cookies = get_facebook_cookies()
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36'}
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
         response = requests.get(url, headers=headers, cookies=cookies, timeout=30)
         html = response.text
-        photos = []
-        videos = []
-        video_patterns = [r'"playable_url_quality_hd":\s*"([^"]+)"', r'"playable_url":\s*"([^"]+)"', r'"hd_src":\s*"([^"]+)"', r'"sd_src":\s*"([^"]+)"']
-        for pattern in video_patterns:
-            matches = re.findall(pattern, html)
-            for match in matches:
-                clean_url = match.replace('\\/', '/').replace('\\u0025', '%').replace('\\u0026', '&')
-                if clean_url.startswith('http') and clean_url not in videos:
-                    videos.append(clean_url)
-        photo_patterns = [r'"image":\s*\{[^}]*"uri":\s*"([^"]+scontent[^"]+)"', r'property="og:image"\s+content="([^"]+)"']
-        for pattern in photo_patterns:
-            matches = re.findall(pattern, html)
-            for match in matches:
-                clean_url = match.replace('\\/', '/').replace('\\u0025', '%').replace('\\u0026', '&')
-                if 'scontent' in clean_url and clean_url not in photos:
-                    photos.append(clean_url)
-        downloaded = []
-        for video_url in videos[:1]:
+        photos, videos, downloaded = [], [], []
+        for pattern in [r'"playable_url_quality_hd":\s*"([^"]+)"', r'"playable_url":\s*"([^"]+)"', r'"hd_src":\s*"([^"]+)"', r'"sd_src":\s*"([^"]+)"']:
+            for match in re.findall(pattern, html):
+                clean = match.replace('\\/', '/').replace('\\u0025', '%').replace('\\u0026', '&')
+                if clean.startswith('http') and clean not in videos:
+                    videos.append(clean)
+        for pattern in [r'"image":\s*\{[^}]*"uri":\s*"([^"]+scontent[^"]+)"', r'property="og:image"\s+content="([^"]+)"']:
+            for match in re.findall(pattern, html):
+                clean = match.replace('\\/', '/').replace('\\u0025', '%').replace('\\u0026', '&')
+                if 'scontent' in clean and clean not in photos:
+                    photos.append(clean)
+        for v in videos[:1]:
             try:
-                resp = requests.get(video_url, headers=headers, cookies=cookies, timeout=120)
+                resp = requests.get(v, headers=headers, cookies=cookies, timeout=120)
                 if resp.status_code == 200 and len(resp.content) > 10000:
-                    filename = "facebook_video_0.mp4"
-                    with open(filename, 'wb') as f:
-                        f.write(resp.content)
-                    downloaded.append(('video', filename))
+                    with open("facebook_video_0.mp4", 'wb') as f: f.write(resp.content)
+                    downloaded.append(('video', "facebook_video_0.mp4"))
                     break
-            except:
-                continue
-        seen_sizes = set()
-        for i, photo_url in enumerate(photos[:10]):
+            except: continue
+        seen = set()
+        for i, p in enumerate(photos[:10]):
             try:
-                resp = requests.get(photo_url, headers=headers, timeout=30)
+                resp = requests.get(p, headers=headers, timeout=30)
                 if resp.status_code == 200:
                     size = len(resp.content)
-                    if size > 20000 and size not in seen_sizes:
-                        seen_sizes.add(size)
-                        filename = f"facebook_photo_{i}.jpg"
-                        with open(filename, 'wb') as f:
-                            f.write(resp.content)
-                        downloaded.append(('photo', filename))
-            except:
-                continue
+                    if size > 20000 and size not in seen:
+                        seen.add(size)
+                        fn = f"facebook_photo_{i}.jpg"
+                        with open(fn, 'wb') as f: f.write(resp.content)
+                        downloaded.append(('photo', fn))
+            except: continue
         return downloaded if downloaded else None
     except:
         return None
 
 def download_video(url):
-    ydl_opts = {'format': 'best[height<=1080]/best', 'outtmpl': 'video.%(ext)s', 'quiet': True, 'no_warnings': True, 'socket_timeout': 60, 'retries': 5, 'http_headers': {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36'}}
+    ydl_opts = {'format': 'best[height<=1080]/best', 'outtmpl': 'video.%(ext)s', 'quiet': True, 'no_warnings': True, 'socket_timeout': 60, 'retries': 5}
     if is_youtube_url(url):
-        ydl_opts.update({'format': 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080]/best', 'merge_output_format': 'mp4', 'postprocessors': [{'key': 'FFmpegVideoConvertor', 'preferedformat': 'mp4'}]})
+        ydl_opts.update({'format': 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080]/best', 'merge_output_format': 'mp4'})
     if is_facebook_url(url) and os.path.exists(FACEBOOK_COOKIES):
         ydl_opts['cookiefile'] = FACEBOOK_COOKIES
     try:
         for f in os.listdir('.'):
-            if f.startswith('video.'):
-                os.remove(f)
+            if f.startswith('video.'): os.remove(f)
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
         for f in os.listdir('.'):
-            if f.startswith('video.'):
-                return f
+            if f.startswith('video.'): return f
         return None
-    except Exception as e:
-        print(f"yt-dlp error: {e}")
+    except:
         return None
 
 def cleanup_files():
     for f in os.listdir('.'):
-        if any([f.startswith('video.'), f.startswith('tiktok_'), f.startswith('instagram_'), f.startswith('facebook_'), f.startswith('normalized_'), f.startswith('audio_'), f.endswith('.mp4'), f.endswith('.mp3'), f.endswith('.jpg'), f.endswith('.webp'), f.endswith('.part')]):
-            try:
-                os.remove(f)
-            except:
-                pass
+        if any([f.startswith('video.'), f.startswith('tiktok_'), f.startswith('instagram_'), f.startswith('facebook_'), f.startswith('slideshow_'), f.startswith('audio_'), f.endswith('.mp4'), f.endswith('.mp3'), f.endswith('.jpg'), f.endswith('.webp')]):
+            try: os.remove(f)
+            except: pass
 
 @bot.message_handler(commands=['start'])
 def start(message):
@@ -370,19 +301,15 @@ def handle_message(message):
         if is_tiktok_url(url):
             video_path = download_video(url)
             if video_path:
-                # Видео - отправляем как есть (без нормализации)
-                width, height, duration = get_video_info(video_path)
+                w, h, dur = get_video_info(video_path)
                 with open(video_path, 'rb') as f:
-                    bot.send_video(message.chat.id, f, supports_streaming=True, width=width, height=height, duration=duration)
-                # Извлекаем музыку с оригинальной громкостью
-                audio_path = extract_audio(video_path)
-                if audio_path:
-                    audio_duration = get_audio_duration(audio_path)
-                    with open(audio_path, 'rb') as f:
-                        bot.send_audio(message.chat.id, f, duration=audio_duration)
+                    bot.send_video(message.chat.id, f, supports_streaming=True, width=w, height=h, duration=dur)
+                audio = extract_audio(video_path)
+                if audio:
+                    with open(audio, 'rb') as f:
+                        bot.send_audio(message.chat.id, f, duration=get_audio_duration(audio))
                 success = True
             else:
-                # Фото-карусель
                 photos = download_tiktok_photos(url)
                 if photos:
                     if len(photos) == 1:
@@ -391,26 +318,23 @@ def handle_message(message):
                     else:
                         media = [telebot.types.InputMediaPhoto(open(p, 'rb')) for p in photos[:10]]
                         bot.send_media_group(message.chat.id, media)
-                    
-                    # Скачиваем и отправляем музыку для фото-карусели
-                    audio_path = download_tiktok_audio(url)
-                    if audio_path:
-                        audio_duration = get_audio_duration(audio_path)
-                        with open(audio_path, 'rb') as f:
-                            bot.send_audio(message.chat.id, f, duration=audio_duration)
-                    
+                    # Музыка для слайдшоу
+                    audio = download_tiktok_audio(url)
+                    if audio:
+                        with open(audio, 'rb') as f:
+                            bot.send_audio(message.chat.id, f, duration=get_audio_duration(audio))
                     success = True
         
         elif is_instagram_url(url):
             content = download_instagram_content(url)
             if content:
-                videos = [c[1] for c in content if c[0] == 'video']
-                photos = [c[1] for c in content if c[0] == 'photo']
-                for video_path in videos:
-                    width, height, duration = get_video_info(video_path)
-                    with open(video_path, 'rb') as f:
-                        bot.send_video(message.chat.id, f, supports_streaming=True, width=width, height=height, duration=duration)
-                    success = True
+                for t, p in content:
+                    if t == 'video':
+                        w, h, dur = get_video_info(p)
+                        with open(p, 'rb') as f:
+                            bot.send_video(message.chat.id, f, supports_streaming=True, width=w, height=h, duration=dur)
+                        success = True
+                photos = [p for t, p in content if t == 'photo']
                 if photos:
                     if len(photos) == 1:
                         with open(photos[0], 'rb') as f:
@@ -422,39 +346,49 @@ def handle_message(message):
             if not success:
                 video_path = download_video(url)
                 if video_path:
-                    width, height, duration = get_video_info(video_path)
+                    w, h, dur = get_video_info(video_path)
                     with open(video_path, 'rb') as f:
-                        bot.send_video(message.chat.id, f, supports_streaming=True, width=width, height=height, duration=duration)
+                        bot.send_video(message.chat.id, f, supports_streaming=True, width=w, height=h, duration=dur)
                     success = True
         
         elif is_facebook_url(url):
             content = download_facebook_content(url)
             if content:
-                videos = [c[1] for c in content if c[0] == 'video']
-                photos = [c[1] for c in content if c[0] == 'photo']
-                for video_path in videos:
-                    width, height, duration = get_video_info(video_path)
+                for t, p in content:
+                    if t == 'video':
+                        w, h, dur = get_video_info(p)
+                        with open(p, 'rb') as f:
+                            bot.send_video(message.chat.id, f, supports_streaming=True, width=w, height=h, duration=dur)
+                        success = True
+                photos = [p for t, p in content if t == 'photo']
+                if photos:
+                    if len(photos) == 1:
+                        with open(photos[0], 'rb') as f:
+                            bot.send_photo(message.chat.id, f)
+                    else:
+                        media = [telebot.types.InputMediaPhoto(open(p, 'rb')) for p in photos[:10]]
+                        bot.send_media_group(message.chat.id, media)
+                    success = True
+            if not success:
+                video_path = download_video(url)
+                if video_path:
+                    w, h, dur = get_video_info(video_path)
                     with open(video_path, 'rb') as f:
-                        bot.send_video(message.chat.id, f, supports_streaming=True, width=width, height=height, duration=duration)
+                        bot.send_video(message.chat.id, f, supports_streaming=True, width=w, height=h, duration=dur)
                     success = True
         
         elif is_youtube_url(url):
             video_path = download_video(url)
             if video_path:
-                width, height, duration = get_video_info(video_path)
+                w, h, dur = get_video_info(video_path)
                 with open(video_path, 'rb') as f:
-                    bot.send_video(message.chat.id, f, supports_streaming=True, width=width, height=height, duration=duration)
+                    bot.send_video(message.chat.id, f, supports_streaming=True, width=w, height=h, duration=dur)
                 success = True
         
-        try:
-            bot.delete_message(message.chat.id, message.message_id)
-        except:
-            pass
+        try: bot.delete_message(message.chat.id, message.message_id)
+        except: pass
         
-        if success:
-            bot.edit_message_text(get_text(user_id, 'success'), message.chat.id, status_msg.message_id)
-        else:
-            bot.edit_message_text(get_text(user_id, 'error'), message.chat.id, status_msg.message_id)
+        bot.edit_message_text(get_text(user_id, 'success' if success else 'error'), message.chat.id, status_msg.message_id)
     except Exception as e:
         print(f"Error: {e}")
         bot.edit_message_text(get_text(user_id, 'error'), message.chat.id, status_msg.message_id)
@@ -463,4 +397,5 @@ def handle_message(message):
 
 if __name__ == "__main__":
     print("Bot started...")
-    bot.infinity_polling()   
+    bot.infinity_polling()
+            
