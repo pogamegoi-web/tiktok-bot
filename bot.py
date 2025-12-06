@@ -41,13 +41,11 @@ def download_via_tikwm(url):
     return None
 
 def download_and_boost_audio(url):
-    """Скачивает аудио и усиливает громкость через ffmpeg"""
     try:
         resp = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=30)
         with open('audio_orig.mp3', 'wb') as f:
             f.write(resp.content)
         
-        # Усиливаем громкость в 2 раза
         subprocess.run([
             'ffmpeg', '-i', 'audio_orig.mp3',
             '-filter:a', 'volume=2.0',
@@ -61,6 +59,32 @@ def download_and_boost_audio(url):
         
         if os.path.exists('audio.mp3'):
             return 'audio.mp3'
+    except:
+        pass
+    return None
+
+def download_and_boost_video(video_url):
+    """Скачивает видео и усиливает громкость"""
+    try:
+        resp = requests.get(video_url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=60)
+        with open('video_orig.mp4', 'wb') as f:
+            f.write(resp.content)
+        
+        # Усиливаем громкость в 3 раза
+        subprocess.run([
+            'ffmpeg', '-i', 'video_orig.mp4',
+            '-filter:a', 'volume=3.0',
+            '-c:v', 'copy',
+            '-y', 'video_boosted.mp4'
+        ], capture_output=True, timeout=120)
+        
+        try:
+            os.remove('video_orig.mp4')
+        except:
+            pass
+        
+        if os.path.exists('video_boosted.mp4'):
+            return 'video_boosted.mp4'
     except:
         pass
     return None
@@ -149,6 +173,26 @@ def handle_tiktok(message):
             
             video_url = data.get('hdplay') or data.get('play')
             if video_url:
+                # Скачиваем и усиливаем звук в видео
+                boosted = download_and_boost_video(video_url)
+                if boosted:
+                    try:
+                        with open(boosted, 'rb') as f:
+                            bot.send_video(chat_id, f, caption=caption)
+                        os.remove(boosted)
+                        
+                        if data.get('music'):
+                            send_audio(chat_id, data['music'], caption)
+                        
+                        bot.delete_message(chat_id, status.message_id)
+                        return
+                    except:
+                        try:
+                            os.remove(boosted)
+                        except:
+                            pass
+                
+                # Fallback - отправляем без усиления
                 try:
                     bot.send_video(chat_id, video_url, caption=caption)
                     
