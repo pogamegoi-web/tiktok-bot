@@ -10,11 +10,11 @@ bot = telebot.TeleBot(BOT_TOKEN)
 BOT_USERNAME = "@tiktok27_bot"
 
 TEXTS = {
-    'ru': {'start': '👋 Привет! Отправь ссылку на TikTok видео или фото', 'downloading': '⏳ Загружаю в HD...', 'error': '❌ Не удалось скачать'},
-    'en': {'start': '👋 Hi! Send me a TikTok video or photo link', 'downloading': '⏳ Downloading in HD...', 'error': '❌ Failed to download'},
-    'kk': {'start': '👋 Сәлем! TikTok видео немесе фото сілтемесін жіберіңіз', 'downloading': '⏳ HD жүктеп алуда...', 'error': '❌ Жүктеу сәтсіз'},
-    'uk': {'start': '👋 Привіт! Надішліть посилання на TikTok відео або фото', 'downloading': '⏳ Завантажую в HD...', 'error': '❌ Не вдалося завантажити'},
-    'uz': {'start': '👋 Salom! TikTok video yoki rasm havolasini yuboring', 'downloading': '⏳ HD yuklanmoqda...', 'error': '❌ Yuklab bo\'lmadi'}
+    'ru': {'start': '👋 Привет! Отправь ссылку на TikTok видео или фото', 'error': '❌ Не удалось скачать'},
+    'en': {'start': '👋 Hi! Send me a TikTok video or photo link', 'error': '❌ Failed to download'},
+    'kk': {'start': '👋 Сәлем! TikTok видео немесе фото сілтемесін жіберіңіз', 'error': '❌ Жүктеу сәтсіз'},
+    'uk': {'start': '👋 Привіт! Надішліть посилання на TikTok відео або фото', 'error': '❌ Не вдалося завантажити'},
+    'uz': {'start': '👋 Salom! TikTok video yoki rasm havolasini yuboring', 'error': '❌ Yuklab bo\'lmadi'}
 }
 
 def get_text(user, key):
@@ -102,7 +102,7 @@ def handle_tiktok(message):
     except:
         pass
     
-    status = bot.send_message(chat_id, get_text(user, 'downloading'))
+    status = bot.send_message(chat_id, "⏳")
     
     try:
         data = download_via_tikwm(url)
