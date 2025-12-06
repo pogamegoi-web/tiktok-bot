@@ -2,6 +2,7 @@ import telebot
 from telebot.types import InputMediaPhoto
 import yt_dlp
 import requests
+import subprocess
 import os
 
 BOT_TOKEN = "8347415373:AAE86SZs9sHvHXIiNPv5h_1tPZf6hmLYGjI"
@@ -39,14 +40,30 @@ def download_via_tikwm(url):
         pass
     return None
 
-def download_audio(url):
+def download_and_boost_audio(url):
+    """Скачивает аудио и усиливает громкость через ffmpeg"""
     try:
         resp = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=30)
-        with open('audio.mp3', 'wb') as f:
+        with open('audio_orig.mp3', 'wb') as f:
             f.write(resp.content)
-        return 'audio.mp3'
+        
+        # Усиливаем громкость в 2 раза
+        subprocess.run([
+            'ffmpeg', '-i', 'audio_orig.mp3',
+            '-filter:a', 'volume=2.0',
+            '-y', 'audio.mp3'
+        ], capture_output=True, timeout=30)
+        
+        try:
+            os.remove('audio_orig.mp3')
+        except:
+            pass
+        
+        if os.path.exists('audio.mp3'):
+            return 'audio.mp3'
     except:
-        return None
+        pass
+    return None
 
 def download_video_hd(url):
     try:
@@ -74,7 +91,7 @@ def download_video_hd(url):
     return None
 
 def send_audio(chat_id, music_url, caption):
-    audio_file = download_audio(music_url)
+    audio_file = download_and_boost_audio(music_url)
     if audio_file:
         try:
             with open(audio_file, 'rb') as f:
