@@ -39,6 +39,15 @@ def download_via_tikwm(url):
         pass
     return None
 
+def download_audio(url):
+    try:
+        resp = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=30)
+        with open('audio.mp3', 'wb') as f:
+            f.write(resp.content)
+        return 'audio.mp3'
+    except:
+        return None
+
 def download_video_hd(url):
     try:
         for f in os.listdir('.'):
@@ -63,6 +72,19 @@ def download_video_hd(url):
     except:
         pass
     return None
+
+def send_audio(chat_id, music_url, caption):
+    audio_file = download_audio(music_url)
+    if audio_file:
+        try:
+            with open(audio_file, 'rb') as f:
+                bot.send_audio(chat_id, f, caption=caption, title="TikTok Audio", performer="TikTok")
+        except:
+            pass
+        try:
+            os.remove(audio_file)
+        except:
+            pass
 
 @bot.message_handler(commands=['start'])
 def start(message):
@@ -103,10 +125,7 @@ def handle_tiktok(message):
                         bot.send_photo(chat_id, photo_url)
                 
                 if data.get('music'):
-                    try:
-                        bot.send_audio(chat_id, data['music'], caption=caption, title="TikTok Audio", performer="TikTok")
-                    except:
-                        pass
+                    send_audio(chat_id, data['music'], caption)
                 
                 bot.delete_message(chat_id, status.message_id)
                 return
@@ -117,10 +136,7 @@ def handle_tiktok(message):
                     bot.send_video(chat_id, video_url, caption=caption)
                     
                     if data.get('music'):
-                        try:
-                            bot.send_audio(chat_id, data['music'], caption=caption, title="TikTok Audio", performer="TikTok")
-                        except:
-                            pass
+                        send_audio(chat_id, data['music'], caption)
                     
                     bot.delete_message(chat_id, status.message_id)
                     return
