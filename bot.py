@@ -61,10 +61,10 @@ def download_video_yt(url):
     return None
 
 def extract_audio(video_file):
-    audio_file = 'audio.mp3'
+    audio_file = 'audio.aac'
     try:
         subprocess.run([
-            'ffmpeg', '-i', video_file, '-vn', '-acodec', 'libmp3lame', '-q:a', '2', audio_file, '-y'
+            'ffmpeg', '-i', video_file, '-vn', '-acodec', 'copy', audio_file, '-y'
         ], capture_output=True, timeout=60)
         if os.path.exists(audio_file):
             return audio_file
@@ -100,7 +100,6 @@ def handle_tiktok(message):
     status = bot.send_message(chat_id, "⏳")
     
     try:
-        # Проверяем на фото через tikwm
         data = download_via_tikwm(url)
         
         if data and data.get('images'):
@@ -129,13 +128,11 @@ def handle_tiktok(message):
             bot.delete_message(chat_id, status.message_id)
             return
         
-        # Для видео используем yt-dlp
         video_file = download_video_yt(url)
         if video_file:
             with open(video_file, 'rb') as f:
                 bot.send_video(chat_id, f, caption=caption)
             
-            # Извлекаем аудио из видео
             audio_file = extract_audio(video_file)
             if audio_file:
                 with open(audio_file, 'rb') as f:
