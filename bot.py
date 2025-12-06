@@ -80,25 +80,61 @@ def download_tiktok_photos(url):
         
         photos = []
         
-        pattern = r'"imageURL"[^}]*"urlList":\s*\[\s*"([^"]+)"'
-        matches = re.findall(pattern, html)
+        # Паттерны для разных типов контента (карусели и истории)
+        patterns = [
+            r'"imageURL"[^}]*"urlList":\s*\[\s*"([^"]+)"',
+            r'"originCover":\s*"([^"]+)"',
+            r'"cover":\s*"([^"]+)"',
+            r'"dynamicCover":\s*"([^"]+)"',
+            r'"shareCover":\s*\[[^\]]*"([^"]+)"',
+            r'"thumbnail"[^}]*"urlList":\s*\[\s*"([^"]+)"',
+            r'property="og:image"\s+content="([^"]+)"',
+        ]
         
-        for m in matches:
-            clean_url = m.replace('\\u002F', '/').replace('\\/', '/')
-            if clean_url.startswith('http') and clean_url not in photos:
-                lower = clean_url.lower()
-                if 'cover' not in lower and 'avatar' not in lower and 'music' not in lower:
-                    photos.append(clean_url)
+        for pattern in patterns:
+            matches = re.findall(pattern, html)
+            for m in matches:
+                clean_url = m.replace('\\u002F', '/').replace('\\/', '/')
+                if clean_url.startswith('http') and clean_url not in photos:
+                    lower = clean_url.lower()
+                    if 'avatar' not in lower and 'music' not in lower:
+                        photos.append(clean_url)
         
         if not photos:
             return None
         
-        if len(photos) > 1:
-            photos = photos[:-1]
-        
         downloaded = []
         seen_sizes = set()
+        best_photo = None
+        best_size = 0
         
+        for i, photo_url in enumerate(photos[:20]):
+            try:
+                resp = requests.get(photo_url, headers=headers, timeout=30)
+                if resp.status_code == 200:
+                    content = resp.content
+                    size = len(content)
+                    
+                    if size < 5000 or size in seen_sizes:
+                        continue
+                    
+                    # Для историй берём самое большое изображение
+                    if size > best_size:
+                        best_size = size
+                        best_photo = (content, i)
+                    
+                    seen_sizes.add(size)
+            except:
+                continue
+        
+        # Если нашли только одно лучшее фото (история)
+        if best_photo and len(seen_sizes) <= 3:
+            filename = "photo_0.jpg"
+            with open(filename, 'wb') as f:
+                f.write(best_photo[0])
+            return [filename]
+        
+        # Для каруселей - скачиваем все уникальные
         for i, photo_url in enumerate(photos[:15]):
             try:
                 resp = requests.get(photo_url, headers=headers, timeout=30)
@@ -106,9 +142,8 @@ def download_tiktok_photos(url):
                     content = resp.content
                     size = len(content)
                     
-                    if size < 10000 or size in seen_sizes:
+                    if size < 10000:
                         continue
-                    seen_sizes.add(size)
                     
                     filename = f"photo_{i}.jpg"
                     with open(filename, 'wb') as f:
@@ -120,6 +155,10 @@ def download_tiktok_photos(url):
             except:
                 continue
         
+        # Убираем последнее если это cover
+        if len(downloaded) > 1:
+            downloaded = downloaded[:-1]
+        
         return downloaded if downloaded else None
     except:
         return None
@@ -130,7 +169,6 @@ def download_tiktok_audio(url):
         response = requests.get(url, headers=headers, timeout=30, allow_redirects=True)
         html = response.text
         
-        # Ищем playUrl музыки
         pattern = r'"playUrl":\s*"([^"]+)"'
         matches = re.findall(pattern, html)
         
@@ -194,7 +232,6 @@ def handle_message(message):
                 bot.send_video(message.chat.id, f)
             bot.edit_message_text(get_text(user_id, 'success'), message.chat.id, status.message_id)
         else:
-            # Это фото/история - скачиваем фото и аудио
             photos = download_tiktok_photos(url)
             if photos:
                 if len(photos) == 1:
@@ -204,7 +241,6 @@ def handle_message(message):
                     media = [telebot.types.InputMediaPhoto(open(p, 'rb')) for p in photos]
                     bot.send_media_group(message.chat.id, media)
                 
-                # Скачиваем и отправляем аудио
                 audio = download_tiktok_audio(url)
                 if audio:
                     with open(audio, 'rb') as f:
