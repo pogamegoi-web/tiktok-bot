@@ -50,6 +50,16 @@ texts = {
 def get_text(user_id, key):
     return texts[user_lang.get(user_id, 'ru')][key]
 
+def get_tiktok_info(url):
+    """Получает инфо через yt-dlp без скачивания"""
+    try:
+        ydl_opts = {'quiet': True, 'no_warnings': True}
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            return info
+    except:
+        return None
+
 def download_video(url):
     try:
         for f in os.listdir('.'):
@@ -73,21 +83,56 @@ def download_video(url):
     return None
 
 def download_tiktok_photos(url):
+    headers = {'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)'}
+    
+    # Сначала пробуем получить через yt-dlp
     try:
-        headers = {'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)'}
+        info = get_tiktok_info(url)
+        if info:
+            photos = []
+            
+            # Ищем изображения в thumbnails
+            for thumb in info.get('thumbnails', []):
+                thumb_url = thumb.get('url', '')
+                if thumb_url and thumb_url not in photos:
+                    photos.append(thumb_url)
+            
+            # Ищем в других полях
+            for key in ['thumbnail', 'cover']:
+                if info.get(key):
+                    photos.append(info[key])
+            
+            if photos:
+                downloaded = []
+                best_size = 0
+                best_content = None
+                
+                for photo_url in photos:
+                    try:
+                        resp = requests.get(photo_url, headers=headers, timeout=30)
+                        if resp.status_code == 200 and len(resp.content) > best_size:
+                            best_size = len(resp.content)
+                            best_content = resp.content
+                    except:
+                        continue
+                
+                if best_content and best_size > 5000:
+                    with open('photo_0.jpg', 'wb') as f:
+                        f.write(best_content)
+                    return ['photo_0.jpg']
+    except:
+        pass
+    
+    # Fallback - парсим HTML
+    try:
         response = requests.get(url, headers=headers, timeout=30, allow_redirects=True)
         html = response.text
         
         photos = []
-        
-        # Паттерны для разных типов контента (карусели и истории)
         patterns = [
             r'"imageURL"[^}]*"urlList":\s*\[\s*"([^"]+)"',
             r'"originCover":\s*"([^"]+)"',
             r'"cover":\s*"([^"]+)"',
-            r'"dynamicCover":\s*"([^"]+)"',
-            r'"shareCover":\s*\[[^\]]*"([^"]+)"',
-            r'"thumbnail"[^}]*"urlList":\s*\[\s*"([^"]+)"',
             r'property="og:image"\s+content="([^"]+)"',
         ]
         
@@ -96,8 +141,7 @@ def download_tiktok_photos(url):
             for m in matches:
                 clean_url = m.replace('\\u002F', '/').replace('\\/', '/')
                 if clean_url.startswith('http') and clean_url not in photos:
-                    lower = clean_url.lower()
-                    if 'avatar' not in lower and 'music' not in lower:
+                    if 'avatar' not in clean_url.lower():
                         photos.append(clean_url)
         
         if not photos:
@@ -105,49 +149,19 @@ def download_tiktok_photos(url):
         
         downloaded = []
         seen_sizes = set()
-        best_photo = None
-        best_size = 0
         
-        for i, photo_url in enumerate(photos[:20]):
-            try:
-                resp = requests.get(photo_url, headers=headers, timeout=30)
-                if resp.status_code == 200:
-                    content = resp.content
-                    size = len(content)
-                    
-                    if size < 5000 or size in seen_sizes:
-                        continue
-                    
-                    # Для историй берём самое большое изображение
-                    if size > best_size:
-                        best_size = size
-                        best_photo = (content, i)
-                    
-                    seen_sizes.add(size)
-            except:
-                continue
-        
-        # Если нашли только одно лучшее фото (история)
-        if best_photo and len(seen_sizes) <= 3:
-            filename = "photo_0.jpg"
-            with open(filename, 'wb') as f:
-                f.write(best_photo[0])
-            return [filename]
-        
-        # Для каруселей - скачиваем все уникальные
         for i, photo_url in enumerate(photos[:15]):
             try:
                 resp = requests.get(photo_url, headers=headers, timeout=30)
                 if resp.status_code == 200:
-                    content = resp.content
-                    size = len(content)
-                    
-                    if size < 10000:
+                    size = len(resp.content)
+                    if size < 10000 or size in seen_sizes:
                         continue
+                    seen_sizes.add(size)
                     
                     filename = f"photo_{i}.jpg"
                     with open(filename, 'wb') as f:
-                        f.write(content)
+                        f.write(resp.content)
                     downloaded.append(filename)
                     
                     if len(downloaded) >= 10:
@@ -155,7 +169,6 @@ def download_tiktok_photos(url):
             except:
                 continue
         
-        # Убираем последнее если это cover
         if len(downloaded) > 1:
             downloaded = downloaded[:-1]
         
@@ -258,4 +271,4 @@ def handle_message(message):
 if __name__ == "__main__":
     print("Bot started...")
     bot.infinity_polling()
-    
+                    
