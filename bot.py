@@ -75,11 +75,9 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def language_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    
     user_id = query.from_user.id
     lang_code = query.data.replace("lang_", "")
     user_languages[user_id] = lang_code
-    
     await query.edit_message_text(
         get_text(user_id, 'welcome'),
         reply_markup=get_lang_keyboard()
@@ -112,33 +110,25 @@ def boost_music_audio(input_path, output_path):
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     user_id = update.effective_user.id
-    
     if 'tiktok.com' not in text:
         return
-    
     await update.message.reply_text(get_text(user_id, 'downloading'))
-    
     video_id = extract_video_id(text)
     if not video_id:
         await update.message.reply_text(get_text(user_id, 'error'))
         return
-    
     try:
         api_url = f"https://tikwm.com/api/?url=https://www.tiktok.com/@user/video/{video_id}"
         response = requests.get(api_url, timeout=15)
         data = response.json()
-        
         if data.get('code') != 0:
             await update.message.reply_text(get_text(user_id, 'error'))
             return
-        
         video_data = data.get('data', {})
         photos = video_data.get('images', [])
         caption = get_text(user_id, 'caption')
-        
         if photos:
             photos = photos[:30]
-            
             local_photos = []
             for i, photo_url in enumerate(photos):
                 try:
@@ -150,7 +140,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         local_photos.append(filename)
                 except:
                     continue
-            
             if local_photos:
                 for chunk_start in range(0, len(local_photos), 10):
                     chunk = local_photos[chunk_start:chunk_start + 10]
@@ -162,16 +151,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             media.append(InputMediaPhoto(photo_bytes, caption=caption))
                         else:
                             media.append(InputMediaPhoto(photo_bytes))
-                    
                     if media:
                         await update.message.reply_media_group(media)
-                
                 for filename in local_photos:
                     try:
                         os.remove(filename)
                     except:
                         pass
-            
             music_url = video_data.get('music')
             if music_url:
                 music_resp = requests.get(music_url, timeout=30)
@@ -190,9 +176,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 if video_resp.status_code == 200:
                     with open('video.mp4', 'wb') as f:
                         f.write(video_resp.content)
-                    
                     boost_audio('video.mp4', 'video_boosted.mp4')
-                    
                     if os.path.exists('video_boosted.mp4'):
                         await update.message.reply_video(open('video_boosted.mp4', 'rb'), caption=caption)
                         os.remove('video_boosted.mp4')
@@ -211,4 +195,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-    
+                        
