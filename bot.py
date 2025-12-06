@@ -1,220 +1,147 @@
 import telebot
-import subprocess
+from telebot.types import InputMediaPhoto
+import yt_dlp
+import requests
 import os
-import re
-from config import BOT_TOKEN, ADMIN_ID
 
+BOT_TOKEN = "8347415373:AAE86SZs9sHvHXIiNPv5h_1tPZf6hmLYGjI"
 bot = telebot.TeleBot(BOT_TOKEN)
 
-user_lang = {}
+BOT_USERNAME = "@tiktok27_bot"
 
-texts = {
-    'ru': {
-        'start': '''🎬 Video Downloader Bot
-
-Привет! Я могу скачать видео из:
-• TikTok
-• Instagram Reels
-• YouTube Shorts
-
-✨ Без водяного знака и в HD!
-
-Как использовать:
-Просто отправь мне ссылку на видео!
-
-🌐 Сменить язык: /lang''',
-        'lang_choice': '🌐 Выберите язык:',
-        'lang_set': '✅ Язык установлен: Русский',
-        'downloading': '⏳ Скачиваю...',
-        'error': '❌ Не удалось скачать видео. Попробуйте позже или проверьте ссылку.',
-        'video_caption': 'Скачано с @tiktok27_bot 🎬',
-        'audio_caption': 'Скачано с @tiktok27_bot 🎵',
-        'too_big': '⚠️ Видео слишком большое для Telegram (макс 50 МБ)'
-    },
-    'en': {
-        'start': '''🎬 Video Downloader Bot
-
-Hi! I can download videos from:
-• TikTok
-• Instagram Reels
-• YouTube Shorts
-
-✨ Without watermark and in HD!
-
-How to use:
-Just send me a link to the video!
-
-🌐 Change language: /lang''',
-        'lang_choice': '🌐 Choose language:',
-        'lang_set': '✅ Language set: English',
-        'downloading': '⏳ Downloading...',
-        'error': '❌ Failed to download video. Try again later or check the link.',
-        'video_caption': 'Downloaded with @tiktok27_bot 🎬',
-        'audio_caption': 'Downloaded with @tiktok27_bot 🎵',
-        'too_big': '⚠️ Video is too large for Telegram (max 50 MB)'
-    },
-    'kz': {
-        'start': '''🎬 Video Downloader Bot
-
-Сәлем! Мен видео жүктей аламын:
-• TikTok
-• Instagram Reels
-• YouTube Shorts
-
-✨ Су белгісіз және HD сапада!
-
-Қалай қолдану керек:
-Маған видеоға сілтеме жіберіңіз!
-
-🌐 Тілді өзгерту: /lang''',
-        'lang_choice': '🌐 Тілді таңдаңыз:',
-        'lang_set': '✅ Тіл орнатылды: Қазақша',
-        'downloading': '⏳ Жүктелуде...',
-        'error': '❌ Видеоны жүктеу мүмкін болмады. Кейінірек қайталаңыз.',
-        'video_caption': '@tiktok27_bot арқылы жүктелді 🎬',
-        'audio_caption': '@tiktok27_bot арқылы жүктелді 🎵',
-        'too_big': '⚠️ Видео Telegram үшін тым үлкен (макс 50 МБ)'
-    },
-    'ua': {
-        'start': '''🎬 Video Downloader Bot
-
-Привіт! Я можу завантажити відео з:
-• TikTok
-• Instagram Reels
-• YouTube Shorts
-
-✨ Без водяного знаку та в HD!
-
-Як використовувати:
-Просто надішли мені посилання на відео!
-
-🌐 Змінити мову: /lang''',
-        'lang_choice': '🌐 Оберіть мову:',
-        'lang_set': '✅ Мову встановлено: Українська',
-        'downloading': '⏳ Завантажую...',
-        'error': '❌ Не вдалося завантажити відео. Спробуйте пізніше.',
-        'video_caption': 'Завантажено з @tiktok27_bot 🎬',
-        'audio_caption': 'Завантажено з @tiktok27_bot 🎵',
-        'too_big': '⚠️ Відео занадто велике для Telegram (макс 50 МБ)'
-    },
-    'uz': {
-        'start': '''🎬 Video Downloader Bot
-
-Salom! Men video yuklay olaman:
-• TikTok
-• Instagram Reels
-• YouTube Shorts
-
-✨ Suv belgisisiz va HD sifatda!
-
-Qanday foydalanish:
-Menga videoga havola yuboring!
-
-🌐 Tilni o'zgartirish: /lang''',
-        'lang_choice': "🌐 Tilni tanlang:",
-        'lang_set': "✅ Til o'rnatildi: O'zbekcha",
-        'downloading': '⏳ Yuklanmoqda...',
-        'error': "❌ Videoni yuklab bo'lmadi. Keyinroq urinib ko'ring.",
-        'video_caption': '@tiktok27_bot orqali yuklandi 🎬',
-        'audio_caption': '@tiktok27_bot orqali yuklandi 🎵',
-        'too_big': '⚠️ Video Telegram uchun juda katta (maks 50 MB)'
-    }
+TEXTS = {
+    'ru': {'start': '👋 Привет! Отправь ссылку на TikTok видео или фото', 'downloading': '⏳ Загружаю в HD...', 'error': '❌ Не удалось скачать'},
+    'en': {'start': '👋 Hi! Send me a TikTok video or photo link', 'downloading': '⏳ Downloading in HD...', 'error': '❌ Failed to download'},
+    'kk': {'start': '👋 Сәлем! TikTok видео немесе фото сілтемесін жіберіңіз', 'downloading': '⏳ HD жүктеп алуда...', 'error': '❌ Жүктеу сәтсіз'},
+    'uk': {'start': '👋 Привіт! Надішліть посилання на TikTok відео або фото', 'downloading': '⏳ Завантажую в HD...', 'error': '❌ Не вдалося завантажити'},
+    'uz': {'start': '👋 Salom! TikTok video yoki rasm havolasini yuboring', 'downloading': '⏳ HD yuklanmoqda...', 'error': '❌ Yuklab bo\'lmadi'}
 }
 
-def get_text(user_id, key):
-    lang = user_lang.get(user_id, 'ru')
-    return texts[lang][key]
+def get_text(user, key):
+    lang = getattr(user, 'language_code', 'en') or 'en'
+    return TEXTS.get(lang, TEXTS['en']).get(key, TEXTS['en'][key])
+
+def download_via_tikwm(url):
+    try:
+        api_url = f"https://www.tikwm.com/api/?url={url}&hd=1"
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        resp = requests.get(api_url, headers=headers, timeout=10)
+        data = resp.json()
+        if data.get('code') == 0:
+            d = data.get('data', {})
+            return {
+                'images': d.get('images', []),
+                'music': d.get('music'),
+                'hdplay': d.get('hdplay'),
+                'play': d.get('play')
+            }
+    except:
+        pass
+    return None
+
+def download_video_hd(url):
+    try:
+        for f in os.listdir('.'):
+            if f.startswith('video.'):
+                os.remove(f)
+    except:
+        pass
+    
+    ydl_opts = {
+        'format': 'bestvideo[height<=1080]+bestaudio/best[height<=1080]/best',
+        'outtmpl': 'video.%(ext)s',
+        'quiet': True,
+        'merge_output_format': 'mp4'
+    }
+    
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+        for f in os.listdir('.'):
+            if f.startswith('video.'):
+                return f
+    except:
+        pass
+    return None
 
 @bot.message_handler(commands=['start'])
-def cmd_start(message):
-    user_lang.setdefault(message.from_user.id, 'ru')
-    bot.send_message(message.chat.id, get_text(message.from_user.id, 'start'))
+def start(message):
+    bot.reply_to(message, get_text(message.from_user, 'start'))
 
-@bot.message_handler(commands=['lang'])
-def cmd_lang(message):
-    markup = telebot.types.InlineKeyboardMarkup(row_width=2)
-    markup.add(
-        telebot.types.InlineKeyboardButton("🇷🇺 Русский", callback_data="lang_ru"),
-        telebot.types.InlineKeyboardButton("🇬🇧 English", callback_data="lang_en"),
-        telebot.types.InlineKeyboardButton("🇰🇿 Қазақша", callback_data="lang_kz"),
-        telebot.types.InlineKeyboardButton("🇺🇦 Українська", callback_data="lang_ua"),
-        telebot.types.InlineKeyboardButton("🇺🇿 O'zbekcha", callback_data="lang_uz")
-    )
-    bot.send_message(message.chat.id, get_text(message.from_user.id, 'lang_choice'), reply_markup=markup)
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith('lang_'))
-def callback_lang(call):
-    lang = call.data.split('_')[1]
-    user_lang[call.from_user.id] = lang
-    bot.answer_callback_query(call.id)
-    bot.edit_message_text(get_text(call.from_user.id, 'lang_set'), call.message.chat.id, call.message.message_id)
-
-def download_video(url):
-    video_output = f"video_{os.getpid()}.mp4"
-    cmd = ["yt-dlp", "-f", "best[ext=mp4]/best", "-o", video_output, "--no-playlist", url]
+@bot.message_handler(func=lambda m: 'tiktok.com' in m.text.lower() if m.text else False)
+def handle_tiktok(message):
+    url = message.text.strip()
+    user = message.from_user
+    chat_id = message.chat.id
+    caption = f"Скачано с {BOT_USERNAME}"
+    
     try:
-        subprocess.run(cmd, check=True, timeout=300, capture_output=True)
-        if os.path.exists(video_output):
-            return video_output
+        bot.delete_message(chat_id, message.message_id)
     except:
         pass
-    return None
-
-def download_audio(url):
-    audio_output = f"audio_{os.getpid()}.mp3"
-    cmd = ["yt-dlp", "-x", "--audio-format", "mp3", "-o", audio_output, "--no-playlist", url]
+    
+    status = bot.send_message(chat_id, get_text(user, 'downloading'))
+    
     try:
-        subprocess.run(cmd, check=True, timeout=300, capture_output=True)
-        if os.path.exists(audio_output):
-            return audio_output
-    except:
-        pass
-    return None
-
-@bot.message_handler(func=lambda m: True)
-def handle(message):
-    text = message.text or ""
-    urls = re.findall(r'https?://[^\s]+', text)
-    for url in urls:
-        if any(x in url for x in ['tiktok.com', 'instagram.com', 'youtube.com', 'youtu.be']):
-            chat_id = message.chat.id
-            user_id = message.from_user.id
-            
-            try:
-                bot.delete_message(chat_id, message.message_id)
-            except:
-                pass
-            
-            status_msg = bot.send_message(chat_id, get_text(user_id, 'downloading'))
-            
-            video = download_video(url)
-            if video:
-                try:
-                    size = os.path.getsize(video) / (1024 * 1024)
-                    if size > 50:
-                        bot.send_message(chat_id, get_text(user_id, 'too_big'))
+        data = download_via_tikwm(url)
+        
+        if data:
+            if data.get('images'):
+                photos = data['images']
+                
+                media = []
+                for i, photo_url in enumerate(photos):
+                    if i == 0:
+                        media.append(InputMediaPhoto(photo_url, caption=caption))
                     else:
-                        with open(video, 'rb') as f:
-                            bot.send_video(chat_id, f, caption=get_text(user_id, 'video_caption'), supports_streaming=True)
-                    os.remove(video)
-                    audio = download_audio(url)
-                    if audio:
-                        with open(audio, 'rb') as f:
-                            bot.send_audio(chat_id, f, caption=get_text(user_id, 'audio_caption'))
-                        os.remove(audio)
+                        media.append(InputMediaPhoto(photo_url))
+                
+                try:
+                    bot.send_media_group(chat_id, media)
                 except:
-                    bot.send_message(chat_id, get_text(user_id, 'error'))
-                    if os.path.exists(video):
-                        os.remove(video)
-            else:
-                bot.send_message(chat_id, get_text(user_id, 'error'))
+                    for photo_url in photos:
+                        bot.send_photo(chat_id, photo_url)
+                
+                if data.get('music'):
+                    try:
+                        bot.send_audio(chat_id, data['music'], caption=caption)
+                    except:
+                        pass
+                
+                bot.delete_message(chat_id, status.message_id)
+                return
             
-            try:
-                bot.delete_message(chat_id, status_msg.message_id)
-            except:
-                pass
+            video_url = data.get('hdplay') or data.get('play')
+            if video_url:
+                try:
+                    bot.send_video(chat_id, video_url, caption=caption)
+                    
+                    if data.get('music'):
+                        try:
+                            bot.send_audio(chat_id, data['music'], caption=caption)
+                        except:
+                            pass
+                    
+                    bot.delete_message(chat_id, status.message_id)
+                    return
+                except:
+                    pass
+        
+        video_file = download_video_hd(url)
+        if video_file:
+            with open(video_file, 'rb') as f:
+                bot.send_video(chat_id, f, caption=caption)
+            os.remove(video_file)
+            bot.delete_message(chat_id, status.message_id)
+            return
+        
+        bot.delete_message(chat_id, status.message_id)
+        bot.send_message(chat_id, get_text(user, 'error'))
+        
+    except:
+        bot.delete_message(chat_id, status.message_id)
+        bot.send_message(chat_id, get_text(user, 'error'))
 
 if __name__ == "__main__":
-    print("Бот запущен!")
-    bot.infinity_polling()
+    bot.polling(none_stop=True)
     
