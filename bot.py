@@ -30,8 +30,22 @@ def download_via_tikwm(url):
         data = resp.json()
         if data.get('code') == 0:
             d = data.get('data', {})
+            images = d.get('images', [])
+            
+            if len(images) > 0 and len(images) < 5:
+                try:
+                    api2 = f"https://www.tikwm.com/api/?url={url}&hd=1&count=1"
+                    resp2 = requests.get(api2, headers=headers, timeout=10)
+                    data2 = resp2.json()
+                    if data2.get('code') == 0:
+                        images2 = data2.get('data', {}).get('images', [])
+                        if len(images2) > len(images):
+                            images = images2
+                except:
+                    pass
+            
             return {
-                'images': d.get('images', []),
+                'images': images,
                 'music': d.get('music'),
                 'hdplay': d.get('hdplay'),
                 'play': d.get('play')
