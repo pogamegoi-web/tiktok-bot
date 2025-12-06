@@ -124,42 +124,47 @@ def get_audio_duration(audio_path):
 def download_tiktok_audio(url):
     """Скачивает музыку из TikTok слайдшоу"""
     try:
-        for f in os.listdir('.'):
-            if f.startswith('slideshow_') or f.startswith('tiktok_audio'):
-                try: os.remove(f)
-                except: pass
-        
-        ydl_opts = {
-            'format': 'best',
-            'outtmpl': 'slideshow_video.%(ext)s',
-            'quiet': True,
-            'no_warnings': True,
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15'
         }
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
         
-        video_file = None
-        for f in os.listdir('.'):
-            if f.startswith('slideshow_video'):
-                video_file = f
-                break
+        response = requests.get(url, headers=headers, timeout=30, allow_redirects=True)
+        html = response.text
         
-        if not video_file:
-            return None
+        # Ищем URL музыки в HTML
+        audio_urls = []
         
-        audio_path = "tiktok_audio.mp3"
-        subprocess.run(['ffmpeg', '-y', '-i', video_file, '-vn', '-acodec', 'libmp3lame', '-ab', '192k', audio_path], capture_output=True, timeout=120)
+        # Паттерн для playUrl музыки
+        patterns = [
+            r'"playUrl":\s*"([^"]+)"',
+            r'"music"[^}]*"playUrl":\s*"([^"]+)"',
+            r'"audio"[^}]*"url":\s*"([^"]+)"',
+        ]
         
-        try: os.remove(video_file)
-        except: pass
+        for pattern in patterns:
+            matches = re.findall(pattern, html)
+            for m in matches:
+                clean_url = m.replace('\\u002F', '/').replace('\\/', '/')
+                if clean_url.startswith('http') and clean_url not in audio_urls:
+                    audio_urls.append(clean_url)
         
-        if os.path.exists(audio_path) and os.path.getsize(audio_path) > 1000:
-            return audio_path
+        # Скачиваем первый найденный аудио файл
+        for audio_url in audio_urls:
+            try:
+                resp = requests.get(audio_url, headers=headers, timeout=30)
+                if resp.status_code == 200 and len(resp.content) > 5000:
+                    audio_path = "tiktok_audio.mp3"
+                    with open(audio_path, 'wb') as f:
+                        f.write(resp.content)
+                    return audio_path
+            except:
+                continue
+        
         return None
     except Exception as e:
         print(f"Audio error: {e}")
         return None
-
+        
 def get_facebook_cookies():
     """Загружает куки Facebook для requests"""
     cookies = {}
