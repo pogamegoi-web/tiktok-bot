@@ -77,28 +77,6 @@ def get_video_info(video_path):
     except:
         return None, None, None
 
-def download_tiktok_video(url):
-    try:
-        for f in os.listdir('.'):
-            if f.startswith('video.'):
-                os.remove(f)
-        
-        ydl_opts = {
-            'format': 'best[height<=1080]/best',
-            'outtmpl': 'video.%(ext)s',
-            'quiet': True,
-            'no_warnings': True,
-        }
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
-        
-        for f in os.listdir('.'):
-            if f.startswith('video.'):
-                return f
-        return None
-    except:
-        return None
-
 def download_tiktok_photos(url):
     try:
         headers = {'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15'}
@@ -120,23 +98,39 @@ def download_tiktok_photos(url):
         
         downloaded = []
         seen_sizes = set()
-        for i, photo_url in enumerate(photos[:10]):
+        for i, photo_url in enumerate(photos[:15]):
             try:
                 resp = requests.get(photo_url, headers=headers, timeout=30)
                 if resp.status_code == 200:
-                    size = len(resp.content)
+                    content = resp.content
+                    size = len(content)
+                    
+                    # Проверяем magic bytes - должно быть изображение
+                    is_jpeg = content[:2] == b'\xff\xd8'
+                    is_png = content[:4] == b'\x89PNG'
+                    is_webp = content[8:12] == b'WEBP'
+                    
+                    # Пропускаем если это НЕ изображение (видео/другое)
+                    if not (is_jpeg or is_png or is_webp):
+                        continue
+                    
                     if 10000 < size < 10000000 and size not in seen_sizes:
                         seen_sizes.add(size)
-                        filename = f"tiktok_photo_{i}.jpg"
+                        ext = 'jpg' if is_jpeg else ('png' if is_png else 'webp')
+                        filename = f"tiktok_photo_{i}.{ext}"
                         with open(filename, 'wb') as f:
-                            f.write(resp.content)
+                            f.write(content)
                         downloaded.append(filename)
+                        
+                        if len(downloaded) >= 10:
+                            break
             except:
                 continue
         
         return downloaded if downloaded else None
     except:
         return None
+        
 
 def cleanup_files():
     for f in os.listdir('.'):
