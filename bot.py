@@ -30,22 +30,8 @@ def download_via_tikwm(url):
         data = resp.json()
         if data.get('code') == 0:
             d = data.get('data', {})
-            images = d.get('images', [])
-            
-            if len(images) > 0 and len(images) < 5:
-                try:
-                    api2 = f"https://www.tikwm.com/api/?url={url}&hd=1&count=1"
-                    resp2 = requests.get(api2, headers=headers, timeout=10)
-                    data2 = resp2.json()
-                    if data2.get('code') == 0:
-                        images2 = data2.get('data', {}).get('images', [])
-                        if len(images2) > len(images):
-                            images = images2
-                except:
-                    pass
-            
             return {
-                'images': images,
+                'images': d.get('images', []),
                 'music': d.get('music'),
                 'hdplay': d.get('hdplay'),
                 'play': d.get('play')
@@ -164,20 +150,39 @@ def handle_tiktok(message):
             if data.get('images'):
                 photos = data['images'][:30]
                 
-                for chunk_start in range(0, len(photos), 10):
-                    chunk = photos[chunk_start:chunk_start + 10]
+                local_photos = []
+                for i, photo_url in enumerate(photos):
+                    try:
+                        resp = requests.get(photo_url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=15)
+                        if resp.status_code == 200:
+                            filename = f'photo_{i}.jpg'
+                            with open(filename, 'wb') as f:
+                                f.write(resp.content)
+                            local_photos.append(filename)
+                    except:
+                        pass
+                
+                for chunk_start in range(0, len(local_photos), 10):
+                    chunk = local_photos[chunk_start:chunk_start + 10]
                     media = []
-                    for i, photo_url in enumerate(chunk):
+                    for i, filename in enumerate(chunk):
+                        with open(filename, 'rb') as f:
+                            photo_bytes = f.read()
                         if chunk_start == 0 and i == 0:
-                            media.append(InputMediaPhoto(photo_url, caption=caption))
+                            media.append(InputMediaPhoto(photo_bytes, caption=caption))
                         else:
-                            media.append(InputMediaPhoto(photo_url))
+                            media.append(InputMediaPhoto(photo_bytes))
                     
                     try:
                         bot.send_media_group(chat_id, media)
                     except:
-                        for photo_url in chunk:
-                            bot.send_photo(chat_id, photo_url)
+                        pass
+                
+                for f in local_photos:
+                    try:
+                        os.remove(f)
+                    except:
+                        pass
                 
                 if data.get('music'):
                     send_audio(chat_id, data['music'], caption)
@@ -233,4 +238,4 @@ def handle_tiktok(message):
 
 if __name__ == "__main__":
     bot.polling(none_stop=True)
-        
+    
