@@ -93,7 +93,6 @@ def download_tiktok_photos(url):
         if not photos:
             return None
         
-        # Убираем последнее фото - это cover с кнопкой play
         if len(photos) > 1:
             photos = photos[:-1]
         
@@ -125,9 +124,34 @@ def download_tiktok_photos(url):
     except:
         return None
 
+def download_tiktok_audio(url):
+    try:
+        headers = {'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)'}
+        response = requests.get(url, headers=headers, timeout=30, allow_redirects=True)
+        html = response.text
+        
+        # Ищем playUrl музыки
+        pattern = r'"playUrl":\s*"([^"]+)"'
+        matches = re.findall(pattern, html)
+        
+        for m in matches:
+            clean_url = m.replace('\\u002F', '/').replace('\\/', '/')
+            if clean_url.startswith('http'):
+                try:
+                    resp = requests.get(clean_url, headers=headers, timeout=30)
+                    if resp.status_code == 200 and len(resp.content) > 5000:
+                        with open('audio.mp3', 'wb') as f:
+                            f.write(resp.content)
+                        return 'audio.mp3'
+                except:
+                    continue
+        return None
+    except:
+        return None
+
 def cleanup():
     for f in os.listdir('.'):
-        if f.startswith(('video.', 'photo_', 'audio_')) or f.endswith(('.mp4', '.jpg', '.mp3')):
+        if f.startswith(('video.', 'photo_', 'audio')) or f.endswith(('.mp4', '.jpg', '.mp3')):
             try:
                 os.remove(f)
             except:
@@ -170,6 +194,7 @@ def handle_message(message):
                 bot.send_video(message.chat.id, f)
             bot.edit_message_text(get_text(user_id, 'success'), message.chat.id, status.message_id)
         else:
+            # Это фото/история - скачиваем фото и аудио
             photos = download_tiktok_photos(url)
             if photos:
                 if len(photos) == 1:
@@ -178,6 +203,13 @@ def handle_message(message):
                 else:
                     media = [telebot.types.InputMediaPhoto(open(p, 'rb')) for p in photos]
                     bot.send_media_group(message.chat.id, media)
+                
+                # Скачиваем и отправляем аудио
+                audio = download_tiktok_audio(url)
+                if audio:
+                    with open(audio, 'rb') as f:
+                        bot.send_audio(message.chat.id, f, title="TikTok Audio")
+                
                 bot.edit_message_text(get_text(user_id, 'success'), message.chat.id, status.message_id)
             else:
                 bot.edit_message_text(get_text(user_id, 'error'), message.chat.id, status.message_id)
@@ -190,4 +222,4 @@ def handle_message(message):
 if __name__ == "__main__":
     print("Bot started...")
     bot.infinity_polling()
-        
+    
