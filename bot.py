@@ -64,13 +64,11 @@ def download_and_boost_audio(url):
     return None
 
 def download_and_boost_video(video_url):
-    """Скачивает видео и усиливает громкость"""
     try:
         resp = requests.get(video_url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=60)
         with open('video_orig.mp4', 'wb') as f:
             f.write(resp.content)
         
-        # Усиливаем громкость в 3 раза
         subprocess.run([
             'ffmpeg', '-i', 'video_orig.mp4',
             '-filter:a', 'volume=3.0',
@@ -150,20 +148,22 @@ def handle_tiktok(message):
         
         if data:
             if data.get('images'):
-                photos = data['images']
+                photos = data['images'][:30]
                 
-                media = []
-                for i, photo_url in enumerate(photos):
-                    if i == 0:
-                        media.append(InputMediaPhoto(photo_url, caption=caption))
-                    else:
-                        media.append(InputMediaPhoto(photo_url))
-                
-                try:
-                    bot.send_media_group(chat_id, media)
-                except:
-                    for photo_url in photos:
-                        bot.send_photo(chat_id, photo_url)
+                for chunk_start in range(0, len(photos), 10):
+                    chunk = photos[chunk_start:chunk_start + 10]
+                    media = []
+                    for i, photo_url in enumerate(chunk):
+                        if chunk_start == 0 and i == 0:
+                            media.append(InputMediaPhoto(photo_url, caption=caption))
+                        else:
+                            media.append(InputMediaPhoto(photo_url))
+                    
+                    try:
+                        bot.send_media_group(chat_id, media)
+                    except:
+                        for photo_url in chunk:
+                            bot.send_photo(chat_id, photo_url)
                 
                 if data.get('music'):
                     send_audio(chat_id, data['music'], caption)
@@ -173,7 +173,6 @@ def handle_tiktok(message):
             
             video_url = data.get('hdplay') or data.get('play')
             if video_url:
-                # Скачиваем и усиливаем звук в видео
                 boosted = download_and_boost_video(video_url)
                 if boosted:
                     try:
@@ -192,7 +191,6 @@ def handle_tiktok(message):
                         except:
                             pass
                 
-                # Fallback - отправляем без усиления
                 try:
                     bot.send_video(chat_id, video_url, caption=caption)
                     
@@ -221,4 +219,4 @@ def handle_tiktok(message):
 
 if __name__ == "__main__":
     bot.polling(none_stop=True)
-    
+        
