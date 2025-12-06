@@ -628,7 +628,7 @@ def handle_message(message):
         elif is_instagram_url(url):
             # Пробуем парсинг для фото/историй
             content = download_instagram_content(url)
-             if content:
+        if content:
                 videos = [c[1] for c in content if c[0] == 'video']
                 photos = [c[1] for c in content if c[0] == 'photo']
                 
