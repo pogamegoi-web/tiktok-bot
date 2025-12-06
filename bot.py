@@ -71,7 +71,7 @@ def download_and_boost_video(video_url):
         
         subprocess.run([
             'ffmpeg', '-i', 'video_orig.mp4',
-            '-filter:a', 'volume=3.0',
+            '-filter:a', 'volume=2.0',
             '-c:v', 'copy',
             '-y', 'video_boosted.mp4'
         ], capture_output=True, timeout=120)
