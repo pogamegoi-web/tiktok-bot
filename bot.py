@@ -104,7 +104,7 @@ def handle_tiktok(message):
                 
                 if data.get('music'):
                     try:
-                        bot.send_audio(chat_id, data['music'], caption=caption)
+                        bot.send_audio(chat_id, data['music'], caption=caption, title="TikTok Audio", performer="TikTok")
                     except:
                         pass
                 
@@ -118,7 +118,7 @@ def handle_tiktok(message):
                     
                     if data.get('music'):
                         try:
-                            bot.send_audio(chat_id, data['music'], caption=caption)
+                            bot.send_audio(chat_id, data['music'], caption=caption, title="TikTok Audio", performer="TikTok")
                         except:
                             pass
                     
