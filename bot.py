@@ -650,7 +650,7 @@ def handle_message(message):
                     success = True
             
             # Для Reels - yt-dlp
-            if not success:
+        if not success:
                 video_path = download_video(url)
                 if video_path:
                     normalized = normalize_audio(video_path, 'normalized_' + video_path)
