@@ -80,16 +80,16 @@ def download_tiktok_photos(url):
         
         photos = []
         
-        # Ищем ТОЛЬКО imagePost (реальные фото карусели)
-        pattern = r'"imagePost".*?"images":\s*\[(.*?)\]'
-        match = re.search(pattern, html, re.DOTALL)
-        if match:
-            images_data = match.group(1)
-            url_pattern = r'"urlList":\s*\[\s*"([^"]+)"'
-            matches = re.findall(url_pattern, images_data)
-            for m in matches:
-                clean_url = m.replace('\\u002F', '/').replace('\\/', '/')
-                if clean_url.startswith('http') and clean_url not in photos:
+        # Ищем все imageURL
+        pattern = r'"imageURL"[^}]*"urlList":\s*\[\s*"([^"]+)"'
+        matches = re.findall(pattern, html)
+        
+        for m in matches:
+            clean_url = m.replace('\\u002F', '/').replace('\\/', '/')
+            if clean_url.startswith('http') and clean_url not in photos:
+                lower = clean_url.lower()
+                # Фильтруем только cover, avatar, music
+                if 'cover' not in lower and 'avatar' not in lower and 'music' not in lower:
                     photos.append(clean_url)
         
         if not photos:
@@ -97,22 +97,26 @@ def download_tiktok_photos(url):
         
         downloaded = []
         seen_sizes = set()
+        first_size = None
         
-        for i, photo_url in enumerate(photos[:15]):
+        for i, photo_url in enumerate(photos[:20]):
             try:
-                # Пропускаем cover/origin изображения
-                lower = photo_url.lower()
-                if 'origin' in lower or 'cover' in lower or 'music' in lower:
-                    continue
-                
                 resp = requests.get(photo_url, headers=headers, timeout=30)
                 if resp.status_code == 200:
                     content = resp.content
                     size = len(content)
                     
+                    # Запоминаем размер первого фото
+                    if first_size is None:
+                        first_size = size
+                    
                     if size < 10000 or size in seen_sizes:
                         continue
                     seen_sizes.add(size)
+                    
+                    # Пропускаем если размер сильно отличается от первого (это cover)
+                    if first_size and abs(size - first_size) > first_size * 2:
+                        continue
                     
                     filename = f"photo_{i}.jpg"
                     with open(filename, 'wb') as f:
