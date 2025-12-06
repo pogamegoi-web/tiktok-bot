@@ -1,7 +1,6 @@
 import telebot
 import yt_dlp
 import os
-import re
 import requests
 
 BOT_TOKEN = "8347415373:AAE86SZs9sHvHXIiNPv5h_1tPZf6hmLYGjI"
@@ -61,7 +60,6 @@ def download_via_tikwm(url):
             d = data.get('data', {})
             return {
                 'images': d.get('images', []),
-                'cover': d.get('cover'),
                 'music': d.get('music'),
                 'play': d.get('play'),
                 'duration': d.get('duration', 0)
@@ -158,28 +156,28 @@ def handle_message(message):
                         media = [telebot.types.InputMediaPhoto(open(p, 'rb')) for p in downloaded]
                         bot.send_media_group(message.chat.id, media)
                     success = True
-                
-                # Отправляем музыку
-                if tikwm['music']:
-                    try:
-                        resp = requests.get(tikwm['music'], headers=headers, timeout=30)
-                        if resp.status_code == 200 and len(resp.content) > 5000:
-                            with open('audio.mp3', 'wb') as f:
-                                f.write(resp.content)
-                            with open('audio.mp3', 'rb') as f:
-                                bot.send_audio(message.chat.id, f, title="TikTok Audio")
-                    except:
-                        pass
             
-            # Если duration > 0 - это видео
-            elif tikwm['duration'] and tikwm['duration'] > 0:
+            # Это видео
+            else:
                 video = download_video(url)
                 if video:
                     with open(video, 'rb') as f:
                         bot.send_video(message.chat.id, f)
                     success = True
+            
+            # Отправляем музыку для любого контента
+            if tikwm['music']:
+                try:
+                    resp = requests.get(tikwm['music'], headers=headers, timeout=30)
+                    if resp.status_code == 200 and len(resp.content) > 5000:
+                        with open('audio.mp3', 'wb') as f:
+                            f.write(resp.content)
+                        with open('audio.mp3', 'rb') as f:
+                            bot.send_audio(message.chat.id, f, title="TikTok Audio")
+                except:
+                    pass
         
-        # Fallback на yt-dlp
+        # Fallback
         if not success:
             video = download_video(url)
             if video:
@@ -200,4 +198,4 @@ def handle_message(message):
 if __name__ == "__main__":
     print("Bot started...")
     bot.infinity_polling()
-        
+    
