@@ -112,7 +112,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     
     if 'tiktok.com' not in url:
-        await update.message.reply_text(get_text(user_id, 'send_link'))
+        if chat.type == 'private':
+            await update.message.reply_text(get_text(user_id, 'send_link'))
         return
     
     try:
@@ -236,4 +237,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
+        
