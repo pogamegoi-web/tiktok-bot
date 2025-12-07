@@ -1,10 +1,10 @@
-# fly.toml app configuration file generated for tiktok-bot on 2025-12-07T08:31:55Z
+# fly.toml app configuration file generated for tiktok-bot-uhycla on 2025-12-07T08:57:06Z
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'tiktok-bot'
-primary_region = 'iad'
+app = 'tiktok-bot-uhycla'
+primary_region = 'fra'
 
 [build]
 
