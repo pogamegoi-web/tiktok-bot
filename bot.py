@@ -8,7 +8,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMe
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 from telegram.request import HTTPXRequest
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8347415373:AAE86SZs9sHvHXIiNPv5h_1tPZf6hmLYGjI")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8347415373:AAG3qs04mR-CYW2zXwEf3aDvXgCUv1yNcJE")
 LOADING_GIF = "https://i.gifer.com/ZZ5H.gif"
 
 user_languages = {}
