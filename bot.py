@@ -114,7 +114,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if 'tiktok.com' not in text:
         return
     
-    loading_msg = await update.message.reply_text(get_text(user_id, 'downloading')[0])
+    # Удаляем сообщение со ссылкой
+    try:
+        await update.message.delete()
+    except:
+        pass
+    
+    loading_msg = await update.message.chat.send_message(get_text(user_id, 'downloading')[0])
     stop_event = asyncio.Event()
     animation_task = asyncio.create_task(animate_loading(loading_msg, user_id, stop_event))
     
@@ -171,7 +177,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         else:
                             media.append(InputMediaPhoto(photo_bytes))
                     if media:
-                        await update.message.reply_media_group(media)
+                        await update.message.chat.send_media_group(media)
                 for filename in local_photos:
                     try:
                         os.remove(filename)
@@ -185,12 +191,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         f.write(music_resp.content)
                     boost_music_audio('music.mp3', 'music_boosted.mp3')
                     if os.path.exists('music_boosted.mp3'):
-                        await update.message.reply_audio(open('music_boosted.mp3', 'rb'), caption=caption)
+                        await update.message.chat.send_audio(open('music_boosted.mp3', 'rb'), caption=caption)
                         os.remove('music_boosted.mp3')
                     if os.path.exists('music.mp3'):
                         os.remove('music.mp3')
         else:
-            video_url = video_data.get('play') or video_data.get('hdplay')
+            # HD приоритет
+            video_url = video_data.get('hdplay') or video_data.get('play')
             if video_url:
                 video_resp = requests.get(video_url, timeout=60)
                 if video_resp.status_code == 200:
@@ -203,14 +210,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     await loading_msg.delete()
                     
                     if os.path.exists('video_boosted.mp4'):
-                        await update.message.reply_video(open('video_boosted.mp4', 'rb'), caption=caption)
+                        await update.message.chat.send_video(open('video_boosted.mp4', 'rb'), caption=caption)
                         os.remove('video_boosted.mp4')
                     else:
-                        await update.message.reply_video(open('video.mp4', 'rb'), caption=caption)
+                        await update.message.chat.send_video(open('video.mp4', 'rb'), caption=caption)
                     if os.path.exists('video.mp4'):
                         os.remove('video.mp4')
                     
-                    # Отправка музыки под видео с усилением x2
                     if music_url:
                         music_resp = requests.get(music_url, timeout=30)
                         if music_resp.status_code == 200:
@@ -218,7 +224,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                 f.write(music_resp.content)
                             boost_music_audio('music.mp3', 'music_boosted.mp3')
                             if os.path.exists('music_boosted.mp3'):
-                                await update.message.reply_audio(open('music_boosted.mp3', 'rb'), caption=caption)
+                                await update.message.chat.send_audio(open('music_boosted.mp3', 'rb'), caption=caption)
                                 os.remove('music_boosted.mp3')
                             if os.path.exists('music.mp3'):
                                 os.remove('music.mp3')
@@ -236,4 +242,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-                                     
+                                
