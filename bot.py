@@ -6,7 +6,10 @@ import subprocess
 from telegram import Update, InputMediaPhoto, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, MessageHandler, CommandHandler, CallbackQueryHandler, filters, ContextTypes
 
-BOT_TOKEN = os.environ.get('BOT_TOKEN', '8347415373:AAG3qs04mR-CYW2zXwEf3aDvXgCUv1yNcJE')
+BOT_TOKEN = os.environ.get('BOT_TOKEN', '8347415373:AAE86SZs9sHvHXIiNPv5h_1tPZf6hmLYGjI')
+
+# GIF песочных часов
+LOADING_GIF = "https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif"
 
 user_languages = {}
 
@@ -14,35 +17,30 @@ TEXTS = {
     'ru': {
         'welcome': "🎬 Video Downloader Bot\n\nПривет! Я могу скачать видео из:\n• TikTok\n\n✨ Без водяного знака и в HD!\n\nКак использовать:\nПросто отправь мне ссылку на видео!",
         'lang_set': "✅ Язык изменён на Русский",
-        'downloading': ["⏳ Скачиваю", "⌛ Скачиваю.", "⏳ Скачиваю..", "⌛ Скачиваю..."],
         'error': "❌ Ошибка",
         'caption': "Скачано с @tiktok27_bot"
     },
     'en': {
         'welcome': "🎬 Video Downloader Bot\n\nHello! I can download videos from:\n• TikTok\n\n✨ No watermark and in HD!\n\nHow to use:\nJust send me a video link!",
         'lang_set': "✅ Language changed to English",
-        'downloading': ["⏳ Downloading", "⌛ Downloading.", "⏳ Downloading..", "⌛ Downloading..."],
         'error': "❌ Error",
         'caption': "Downloaded via @tiktok27_bot"
     },
     'uk': {
         'welcome': "🎬 Video Downloader Bot\n\nПривіт! Я можу завантажити відео з:\n• TikTok\n\n✨ Без водяного знаку та в HD!\n\nЯк використовувати:\nПросто надішли мені посилання на відео!",
         'lang_set': "✅ Мову змінено на Українську",
-        'downloading': ["⏳ Завантажую", "⌛ Завантажую.", "⏳ Завантажую..", "⌛ Завантажую..."],
         'error': "❌ Помилка",
         'caption': "Завантажено з @tiktok27_bot"
     },
     'uz': {
         'welcome': "🎬 Video Downloader Bot\n\nSalom! Men quyidagi videolarni yuklab olishim mumkin:\n• TikTok\n\n✨ Suv belgisisiz va HD sifatda!\n\nQanday foydalanish:\nMenga video havolasini yuboring!",
         'lang_set': "✅ Til O'zbek tiliga o'zgartirildi",
-        'downloading': ["⏳ Yuklanmoqda", "⌛ Yuklanmoqda.", "⏳ Yuklanmoqda..", "⌛ Yuklanmoqda..."],
         'error': "❌ Xato",
         'caption': "@tiktok27_bot orqali yuklandi"
     },
     'kk': {
         'welcome': "🎬 Video Downloader Bot\n\nСәлем! Мен видео жүктей аламын:\n• TikTok\n\n✨ Су белгісіз және HD сапада!\n\nҚалай пайдалану:\nМаған видео сілтемесін жіберіңіз!",
         'lang_set': "✅ Тіл Қазақшаға өзгертілді",
-        'downloading': ["⏳ Жүктелуде", "⌛ Жүктелуде.", "⏳ Жүктелуде..", "⌛ Жүктелуде..."],
         'error': "❌ Қате",
         'caption': "@tiktok27_bot арқылы жүктелді"
     }
@@ -74,17 +72,6 @@ async def language_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.edit_message_text(get_text(user_id, 'welcome'), reply_markup=get_lang_keyboard())
     await query.message.reply_text(get_text(user_id, 'lang_set'))
 
-async def animate_loading(message, user_id, stop_event):
-    frames = get_text(user_id, 'downloading')
-    i = 0
-    while not stop_event.is_set():
-        try:
-            await message.edit_text(frames[i % len(frames)])
-            i += 1
-            await asyncio.sleep(0.5)
-        except:
-            break
-
 def extract_video_id(url):
     try:
         if 'vm.tiktok.com' in url or 'vt.tiktok.com' in url:
@@ -101,35 +88,34 @@ def extract_video_id(url):
     return None
 
 def boost_audio(input_path, output_path):
-    cmd = ['ffmpeg', '-y', '-i', input_path, '-af', 'volume=2.0', '-c:v', 'copy', output_path]
+    cmd = ['ffmpeg', '-y', '-i', input_path, '-af', 'volume=2.3', '-c:v', 'copy', output_path]
     subprocess.run(cmd, capture_output=True)
 
 def boost_music_audio(input_path, output_path):
-    cmd = ['ffmpeg', '-y', '-i', input_path, '-af', 'volume=2.0', output_path]
+    cmd = ['ffmpeg', '-y', '-i', input_path, '-af', 'volume=1.7', output_path]
     subprocess.run(cmd, capture_output=True)
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     user_id = update.effective_user.id
+    chat = update.message.chat
+    
     if 'tiktok.com' not in text:
         return
     
-    # Удаляем сообщение со ссылкой
     try:
         await update.message.delete()
     except:
         pass
     
-    loading_msg = await update.message.chat.send_message(get_text(user_id, 'downloading')[0])
-    stop_event = asyncio.Event()
-    animation_task = asyncio.create_task(animate_loading(loading_msg, user_id, stop_event))
+    # Отправляем GIF загрузки
+    loading_msg = await chat.send_animation(LOADING_GIF)
     
     try:
         video_id = extract_video_id(text)
         if not video_id:
-            stop_event.set()
-            await animation_task
-            await loading_msg.edit_text(get_text(user_id, 'error'))
+            await loading_msg.delete()
+            await chat.send_message(get_text(user_id, 'error'))
             return
         
         api_url = f"https://tikwm.com/api/?url=https://www.tiktok.com/@user/video/{video_id}"
@@ -137,15 +123,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         data = response.json()
         
         if data.get('code') != 0:
-            stop_event.set()
-            await animation_task
-            await loading_msg.edit_text(get_text(user_id, 'error'))
+            await loading_msg.delete()
+            await chat.send_message(get_text(user_id, 'error'))
             return
         
         video_data = data.get('data', {})
         photos = video_data.get('images', [])
         caption = get_text(user_id, 'caption')
         music_url = video_data.get('music')
+        
+        await loading_msg.delete()
         
         if photos:
             photos = photos[:30]
@@ -161,10 +148,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 except:
                     continue
             
-            stop_event.set()
-            await animation_task
-            await loading_msg.delete()
-            
             if local_photos:
                 for chunk_start in range(0, len(local_photos), 10):
                     chunk = local_photos[chunk_start:chunk_start + 10]
@@ -177,7 +160,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         else:
                             media.append(InputMediaPhoto(photo_bytes))
                     if media:
-                        await update.message.chat.send_media_group(media)
+                        await chat.send_media_group(media)
                 for filename in local_photos:
                     try:
                         os.remove(filename)
@@ -191,12 +174,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         f.write(music_resp.content)
                     boost_music_audio('music.mp3', 'music_boosted.mp3')
                     if os.path.exists('music_boosted.mp3'):
-                        await update.message.chat.send_audio(open('music_boosted.mp3', 'rb'), caption=caption)
+                        await chat.send_audio(open('music_boosted.mp3', 'rb'), caption=caption)
                         os.remove('music_boosted.mp3')
                     if os.path.exists('music.mp3'):
                         os.remove('music.mp3')
         else:
-            # HD приоритет
             video_url = video_data.get('hdplay') or video_data.get('play')
             if video_url:
                 video_resp = requests.get(video_url, timeout=60)
@@ -205,15 +187,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         f.write(video_resp.content)
                     boost_audio('video.mp4', 'video_boosted.mp4')
                     
-                    stop_event.set()
-                    await animation_task
-                    await loading_msg.delete()
-                    
                     if os.path.exists('video_boosted.mp4'):
-                        await update.message.chat.send_video(open('video_boosted.mp4', 'rb'), caption=caption)
+                        await chat.send_video(open('video_boosted.mp4', 'rb'), caption=caption)
                         os.remove('video_boosted.mp4')
                     else:
-                        await update.message.chat.send_video(open('video.mp4', 'rb'), caption=caption)
+                        await chat.send_video(open('video.mp4', 'rb'), caption=caption)
                     if os.path.exists('video.mp4'):
                         os.remove('video.mp4')
                     
@@ -224,14 +202,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                 f.write(music_resp.content)
                             boost_music_audio('music.mp3', 'music_boosted.mp3')
                             if os.path.exists('music_boosted.mp3'):
-                                await update.message.chat.send_audio(open('music_boosted.mp3', 'rb'), caption=caption)
+                                await chat.send_audio(open('music_boosted.mp3', 'rb'), caption=caption)
                                 os.remove('music_boosted.mp3')
                             if os.path.exists('music.mp3'):
                                 os.remove('music.mp3')
     except Exception as e:
-        stop_event.set()
-        await animation_task
-        await loading_msg.edit_text(f"{get_text(user_id, 'error')}: {str(e)}")
+        try:
+            await loading_msg.delete()
+        except:
+            pass
+        await chat.send_message(f"{get_text(user_id, 'error')}: {str(e)}")
 
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
@@ -242,4 +222,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-                                
+    
