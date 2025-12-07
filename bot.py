@@ -1,48 +1,58 @@
 import os
 import re
-import asyncio
 import requests
+import asyncio
 import subprocess
-from telegram import Update, InputMediaPhoto, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, MessageHandler, CommandHandler, CallbackQueryHandler, filters, ContextTypes
+import tempfile
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
+from telegram.request import HTTPXRequest
 
-BOT_TOKEN = os.environ.get('BOT_TOKEN', '8347415373:AAE86SZs9sHvHXIiNPv5h_1tPZf6hmLYGjI')
-
-# GIF песочных часов
-LOADING_GIF = "https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif"
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8347415373:AAE86SZs9sHvHXIiNPv5h_1tPZf6hmLYGjI")
+LOADING_GIF = "https://i.gifer.com/ZZ5H.gif"
 
 user_languages = {}
 
 TEXTS = {
     'ru': {
-        'welcome': "🎬 Video Downloader Bot\n\nПривет! Я могу скачать видео из:\n• TikTok\n\n✨ Без водяного знака и в HD!\n\nКак использовать:\nПросто отправь мне ссылку на видео!",
-        'lang_set': "✅ Язык изменён на Русский",
-        'error': "❌ Ошибка",
-        'caption': "Скачано с @tiktok27_bot"
+        'welcome': '👋 Привет! Отправь мне ссылку на TikTok видео или фото, и я скачаю его для тебя.',
+        'select_lang': '🌍 Выберите язык:',
+        'lang_set': '✅ Язык установлен: Русский',
+        'downloading': '⏳ Скачиваю...',
+        'error': '❌ Ошибка при скачивании',
+        'send_link': '📎 Отправьте ссылку на TikTok'
     },
     'en': {
-        'welcome': "🎬 Video Downloader Bot\n\nHello! I can download videos from:\n• TikTok\n\n✨ No watermark and in HD!\n\nHow to use:\nJust send me a video link!",
-        'lang_set': "✅ Language changed to English",
-        'error': "❌ Error",
-        'caption': "Downloaded via @tiktok27_bot"
+        'welcome': '👋 Hi! Send me a TikTok video or photo link and I will download it for you.',
+        'select_lang': '🌍 Select language:',
+        'lang_set': '✅ Language set: English',
+        'downloading': '⏳ Downloading...',
+        'error': '❌ Download error',
+        'send_link': '📎 Send TikTok link'
     },
     'uk': {
-        'welcome': "🎬 Video Downloader Bot\n\nПривіт! Я можу завантажити відео з:\n• TikTok\n\n✨ Без водяного знаку та в HD!\n\nЯк використовувати:\nПросто надішли мені посилання на відео!",
-        'lang_set': "✅ Мову змінено на Українську",
-        'error': "❌ Помилка",
-        'caption': "Завантажено з @tiktok27_bot"
+        'welcome': '👋 Привіт! Надішли мені посилання на TikTok відео або фото, і я завантажу його для тебе.',
+        'select_lang': '🌍 Оберіть мову:',
+        'lang_set': '✅ Мову встановлено: Українська',
+        'downloading': '⏳ Завантажую...',
+        'error': '❌ Помилка завантаження',
+        'send_link': '📎 Надішліть посилання на TikTok'
     },
     'uz': {
-        'welcome': "🎬 Video Downloader Bot\n\nSalom! Men quyidagi videolarni yuklab olishim mumkin:\n• TikTok\n\n✨ Suv belgisisiz va HD sifatda!\n\nQanday foydalanish:\nMenga video havolasini yuboring!",
-        'lang_set': "✅ Til O'zbek tiliga o'zgartirildi",
-        'error': "❌ Xato",
-        'caption': "@tiktok27_bot orqali yuklandi"
+        'welcome': '👋 Salom! Menga TikTok video yoki rasm havolasini yuboring, men uni siz uchun yuklab olaman.',
+        'select_lang': '🌍 Tilni tanlang:',
+        'lang_set': '✅ Til sozlandi: O\'zbekcha',
+        'downloading': '⏳ Yuklanmoqda...',
+        'error': '❌ Yuklashda xatolik',
+        'send_link': '📎 TikTok havolasini yuboring'
     },
     'kk': {
-        'welcome': "🎬 Video Downloader Bot\n\nСәлем! Мен видео жүктей аламын:\n• TikTok\n\n✨ Су белгісіз және HD сапада!\n\nҚалай пайдалану:\nМаған видео сілтемесін жіберіңіз!",
-        'lang_set': "✅ Тіл Қазақшаға өзгертілді",
-        'error': "❌ Қате",
-        'caption': "@tiktok27_bot арқылы жүктелді"
+        'welcome': '👋 Сәлем! Маған TikTok видео немесе фото сілтемесін жіберіңіз, мен оны сіз үшін жүктеп аламын.',
+        'select_lang': '🌍 Тілді таңдаңыз:',
+        'lang_set': '✅ Тіл орнатылды: Қазақша',
+        'downloading': '⏳ Жүктелуде...',
+        'error': '❌ Жүктеу қатесі',
+        'send_link': '📎 TikTok сілтемесін жіберіңіз'
     }
 }
 
@@ -50,18 +60,21 @@ def get_text(user_id, key):
     lang = user_languages.get(user_id, 'ru')
     return TEXTS.get(lang, TEXTS['ru']).get(key, TEXTS['ru'][key])
 
-def get_lang_keyboard():
+def get_language_keyboard():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🇷🇺 Русский", callback_data="lang_ru"),
          InlineKeyboardButton("🇬🇧 English", callback_data="lang_en")],
         [InlineKeyboardButton("🇺🇦 Українська", callback_data="lang_uk"),
-         InlineKeyboardButton("🇺🇿 O'zbek", callback_data="lang_uz")],
+         InlineKeyboardButton("🇺🇿 O'zbekcha", callback_data="lang_uz")],
         [InlineKeyboardButton("🇰🇿 Қазақша", callback_data="lang_kk")]
     ])
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    await update.message.reply_text(get_text(user_id, 'welcome'), reply_markup=get_lang_keyboard())
+    await update.message.reply_text(
+        get_text(user_id, 'welcome'),
+        reply_markup=get_language_keyboard()
+    )
 
 async def language_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -69,22 +82,23 @@ async def language_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = query.from_user.id
     lang_code = query.data.replace("lang_", "")
     user_languages[user_id] = lang_code
-    await query.edit_message_text(get_text(user_id, 'welcome'), reply_markup=get_lang_keyboard())
-    await query.message.reply_text(get_text(user_id, 'lang_set'))
+    await query.edit_message_text(
+        get_text(user_id, 'lang_set') + "\n\n" + get_text(user_id, 'welcome'),
+        reply_markup=get_language_keyboard()
+    )
 
 def extract_video_id(url):
-    try:
-        if 'vm.tiktok.com' in url or 'vt.tiktok.com' in url:
-            response = requests.head(url, allow_redirects=True, timeout=10)
-            url = response.url
-        match = re.search(r'/video/(\d+)', url)
+    patterns = [
+        r'tiktok\.com/@[\w.-]+/video/(\d+)',
+        r'tiktok\.com/@[\w.-]+/photo/(\d+)',
+        r'vm\.tiktok\.com/(\w+)',
+        r'vt\.tiktok\.com/(\w+)',
+        r'tiktok\.com/t/(\w+)'
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, url)
         if match:
             return match.group(1)
-        match = re.search(r'/photo/(\d+)', url)
-        if match:
-            return match.group(1)
-    except:
-        pass
     return None
 
 def boost_audio(input_path, output_path):
@@ -92,15 +106,19 @@ def boost_audio(input_path, output_path):
     subprocess.run(cmd, capture_output=True)
 
 def boost_music_audio(input_path, output_path):
-    cmd = ['ffmpeg', '-y', '-i', input_path, '-af', 'volume=1.7', output_path]
+    cmd = ['ffmpeg', '-y', '-i', input_path, '-af', 'volume=1.9', output_path]
     subprocess.run(cmd, capture_output=True)
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-    user_id = update.effective_user.id
-    chat = update.message.chat
+    if not update.message or not update.message.text:
+        return
     
-    if 'tiktok.com' not in text:
+    url = update.message.text.strip()
+    user_id = update.effective_user.id
+    chat = update.effective_chat
+    
+    if 'tiktok.com' not in url:
+        await update.message.reply_text(get_text(user_id, 'send_link'))
         return
     
     try:
@@ -108,18 +126,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except:
         pass
     
-    # Отправляем GIF загрузки
-    loading_msg = await chat.send_animation(LOADING_GIF)
+    loading_msg = await chat.send_animation(animation=LOADING_GIF)
     
     try:
-        video_id = extract_video_id(text)
-        if not video_id:
-            await loading_msg.delete()
-            await chat.send_message(get_text(user_id, 'error'))
-            return
-        
-        api_url = f"https://tikwm.com/api/?url=https://www.tiktok.com/@user/video/{video_id}"
-        response = requests.get(api_url, timeout=15)
+        video_id = extract_video_id(url)
+        api_url = f"https://www.tikwm.com/api/?url={url}"
+        response = requests.get(api_url, timeout=30)
         data = response.json()
         
         if data.get('code') != 0:
@@ -128,84 +140,88 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         
         video_data = data.get('data', {})
-        photos = video_data.get('images', [])
-        caption = get_text(user_id, 'caption')
+        images = video_data.get('images', [])
         music_url = video_data.get('music')
+        caption = "Скачано с @tiktok27_bot"
         
-        await loading_msg.delete()
-        
-        if photos:
-            photos = photos[:30]
+        if images:
+            photos = images[:50]
             local_photos = []
-            for i, photo_url in enumerate(photos):
+            
+            for i, img_url in enumerate(photos):
                 try:
-                    resp = requests.get(photo_url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=15)
-                    if resp.status_code == 200:
-                        filename = f'photo_{i}.jpg'
-                        with open(filename, 'wb') as f:
-                            f.write(resp.content)
-                        local_photos.append(filename)
+                    img_response = requests.get(img_url, timeout=30)
+                    if img_response.status_code == 200:
+                        local_photos.append(img_response.content)
                 except:
                     continue
             
-            if local_photos:
-                for chunk_start in range(0, len(local_photos), 10):
-                    chunk = local_photos[chunk_start:chunk_start + 10]
-                    media = []
-                    for i, filename in enumerate(chunk):
-                        with open(filename, 'rb') as f:
-                            photo_bytes = f.read()
-                        if i == 0:
-                            media.append(InputMediaPhoto(photo_bytes, caption=caption))
-                        else:
-                            media.append(InputMediaPhoto(photo_bytes))
-                    if media:
-                        await chat.send_media_group(media)
-                for filename in local_photos:
-                    try:
-                        os.remove(filename)
-                    except:
-                        pass
+            await loading_msg.delete()
+            
+            for chunk_start in range(0, len(local_photos), 10):
+                chunk = local_photos[chunk_start:chunk_start + 10]
+                media = []
+                for i, photo_bytes in enumerate(chunk):
+                    if i == 0:
+                        media.append(InputMediaPhoto(photo_bytes, caption=caption))
+                    else:
+                        media.append(InputMediaPhoto(photo_bytes))
+                if media:
+                    await chat.send_media_group(media=media)
+                    await asyncio.sleep(0.5)
             
             if music_url:
-                music_resp = requests.get(music_url, timeout=30)
-                if music_resp.status_code == 200:
-                    with open('music.mp3', 'wb') as f:
-                        f.write(music_resp.content)
-                    boost_music_audio('music.mp3', 'music_boosted.mp3')
-                    if os.path.exists('music_boosted.mp3'):
-                        await chat.send_audio(open('music_boosted.mp3', 'rb'), caption=caption)
-                        os.remove('music_boosted.mp3')
-                    if os.path.exists('music.mp3'):
-                        os.remove('music.mp3')
+                with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp_in:
+                    music_response = requests.get(music_url, timeout=30)
+                    tmp_in.write(music_response.content)
+                    tmp_in_path = tmp_in.name
+                
+                tmp_out_path = tmp_in_path.replace('.mp3', '_boosted.mp3')
+                boost_music_audio(tmp_in_path, tmp_out_path)
+                
+                with open(tmp_out_path, 'rb') as audio_file:
+                    await chat.send_audio(audio=audio_file, caption=caption)
+                
+                os.unlink(tmp_in_path)
+                os.unlink(tmp_out_path)
         else:
             video_url = video_data.get('hdplay') or video_data.get('play')
+            
             if video_url:
-                video_resp = requests.get(video_url, timeout=60)
-                if video_resp.status_code == 200:
-                    with open('video.mp4', 'wb') as f:
-                        f.write(video_resp.content)
-                    boost_audio('video.mp4', 'video_boosted.mp4')
+                with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as tmp_in:
+                    video_response = requests.get(video_url, timeout=60)
+                    tmp_in.write(video_response.content)
+                    tmp_in_path = tmp_in.name
+                
+                tmp_out_path = tmp_in_path.replace('.mp4', '_boosted.mp4')
+                boost_audio(tmp_in_path, tmp_out_path)
+                
+                await loading_msg.delete()
+                
+                with open(tmp_out_path, 'rb') as video_file:
+                    await chat.send_video(video=video_file, caption=caption)
+                
+                os.unlink(tmp_in_path)
+                os.unlink(tmp_out_path)
+                
+                if music_url:
+                    with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp_in:
+                        music_response = requests.get(music_url, timeout=30)
+                        tmp_in.write(music_response.content)
+                        tmp_in_path = tmp_in.name
                     
-                    if os.path.exists('video_boosted.mp4'):
-                        await chat.send_video(open('video_boosted.mp4', 'rb'), caption=caption)
-                        os.remove('video_boosted.mp4')
-                    else:
-                        await chat.send_video(open('video.mp4', 'rb'), caption=caption)
-                    if os.path.exists('video.mp4'):
-                        os.remove('video.mp4')
+                    tmp_out_path = tmp_in_path.replace('.mp3', '_boosted.mp3')
+                    boost_music_audio(tmp_in_path, tmp_out_path)
                     
-                    if music_url:
-                        music_resp = requests.get(music_url, timeout=30)
-                        if music_resp.status_code == 200:
-                            with open('music.mp3', 'wb') as f:
-                                f.write(music_resp.content)
-                            boost_music_audio('music.mp3', 'music_boosted.mp3')
-                            if os.path.exists('music_boosted.mp3'):
-                                await chat.send_audio(open('music_boosted.mp3', 'rb'), caption=caption)
-                                os.remove('music_boosted.mp3')
-                            if os.path.exists('music.mp3'):
-                                os.remove('music.mp3')
+                    with open(tmp_out_path, 'rb') as audio_file:
+                        await chat.send_audio(audio=audio_file, caption=caption)
+                    
+                    os.unlink(tmp_in_path)
+                    os.unlink(tmp_out_path)
+            else:
+                await loading_msg.delete()
+                await chat.send_message(get_text(user_id, 'error'))
+    
     except Exception as e:
         try:
             await loading_msg.delete()
@@ -214,12 +230,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await chat.send_message(f"{get_text(user_id, 'error')}: {str(e)}")
 
 def main():
-    app = Application.builder().token(BOT_TOKEN).build()
-    app.add_handler(CommandHandler("start", start_command))
-    app.add_handler(CallbackQueryHandler(language_callback, pattern="^lang_"))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    app.run_polling(drop_pending_updates=True)
-
-if __name__ == '__main__':
-    main()
+    request = HTTPXRequest(read_timeout=60, write_timeout=60, connect_timeout=30)
+    application = Application.builder().token(BOT_TOKEN).request(request).build()
     
+    application.add_handler(CommandHandler("start", start_command))
+    application.add_handler(CallbackQueryHandler(language_callback, pattern="^lang_"))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    
+    print("Bot started...")
+    application.run_polling(drop_pending_updates=True)
+
+if __name__ == "__main__":
+    main()
+                
