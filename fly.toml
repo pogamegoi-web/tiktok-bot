@@ -1,8 +1,5 @@
-app = "tiktok-bot"
+  app = "tiktok-bot"
 primary_region = "fra"
-
-[build]
-  dockerfile = "Dockerfile"
 
 [[vm]]
   size = "shared-cpu-1x"
@@ -10,5 +7,3 @@ primary_region = "fra"
 
 [env]
   BOT_TOKEN = "8347415373:AAE86SZs9sHvHXIiNPv5h_1tPZf6hmLYGjI"
-  
-  
