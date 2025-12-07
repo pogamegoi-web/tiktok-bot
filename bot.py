@@ -9,7 +9,6 @@ from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQu
 from telegram.request import HTTPXRequest
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "8347415373:AAG3qs04mR-CYW2zXwEf3aDvXgCUv1yNcJE")
-LOADING_GIF = "https://i.gifer.com/ZZ5H.gif"
 
 user_languages = {}
 
@@ -18,7 +17,6 @@ TEXTS = {
         'welcome': '👋 Привет! Отправь мне ссылку на TikTok видео или фото, и я скачаю его для тебя.',
         'select_lang': '🌍 Выберите язык:',
         'lang_set': '✅ Язык установлен: Русский',
-        'downloading': '⏳ Скачиваю...',
         'error': '❌ Ошибка при скачивании',
         'send_link': '📎 Отправьте ссылку на TikTok'
     },
@@ -26,7 +24,6 @@ TEXTS = {
         'welcome': '👋 Hi! Send me a TikTok video or photo link and I will download it for you.',
         'select_lang': '🌍 Select language:',
         'lang_set': '✅ Language set: English',
-        'downloading': '⏳ Downloading...',
         'error': '❌ Download error',
         'send_link': '📎 Send TikTok link'
     },
@@ -34,7 +31,6 @@ TEXTS = {
         'welcome': '👋 Привіт! Надішли мені посилання на TikTok відео або фото, і я завантажу його для тебе.',
         'select_lang': '🌍 Оберіть мову:',
         'lang_set': '✅ Мову встановлено: Українська',
-        'downloading': '⏳ Завантажую...',
         'error': '❌ Помилка завантаження',
         'send_link': '📎 Надішліть посилання на TikTok'
     },
@@ -42,7 +38,6 @@ TEXTS = {
         'welcome': '👋 Salom! Menga TikTok video yoki rasm havolasini yuboring, men uni siz uchun yuklab olaman.',
         'select_lang': '🌍 Tilni tanlang:',
         'lang_set': '✅ Til sozlandi: O\'zbekcha',
-        'downloading': '⏳ Yuklanmoqda...',
         'error': '❌ Yuklashda xatolik',
         'send_link': '📎 TikTok havolasini yuboring'
     },
@@ -50,7 +45,6 @@ TEXTS = {
         'welcome': '👋 Сәлем! Маған TikTok видео немесе фото сілтемесін жіберіңіз, мен оны сіз үшін жүктеп аламын.',
         'select_lang': '🌍 Тілді таңдаңыз:',
         'lang_set': '✅ Тіл орнатылды: Қазақша',
-        'downloading': '⏳ Жүктелуде...',
         'error': '❌ Жүктеу қатесі',
         'send_link': '📎 TikTok сілтемесін жіберіңіз'
     }
@@ -126,7 +120,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except:
         pass
     
-    loading_msg = await chat.send_animation(animation=LOADING_GIF)
+    loading_msg = await chat.send_message("⏳")
     
     try:
         video_id = extract_video_id(url)
@@ -148,7 +142,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             photos = images[:50]
             local_photos = []
             
-            for i, img_url in enumerate(photos):
+            for img_url in photos:
                 try:
                     img_response = requests.get(img_url, timeout=30)
                     if img_response.status_code == 200:
@@ -242,4 +236,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-                
+    
