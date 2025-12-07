@@ -6,7 +6,7 @@ import subprocess
 from telegram import Update, InputMediaPhoto, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, MessageHandler, CommandHandler, CallbackQueryHandler, filters, ContextTypes
 
-BOT_TOKEN = os.environ.get('BOT_TOKEN', '8347415373:AAE86SZs9sHvHXIiNPv5h_1tPZf6hmLYGjI')
+BOT_TOKEN = os.environ.get('BOT_TOKEN', '8347415373:AAG3qs04mR-CYW2zXwEf3aDvXgCUv1yNcJE')
 
 user_languages = {}
 
