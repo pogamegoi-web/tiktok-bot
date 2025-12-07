@@ -1,16 +1,10 @@
-# fly.toml app configuration file generated for tiktok-bot on 2025-12-07T08:31:55Z
-#
-# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
-#
-
-app = 'tiktok-bot'
-primary_region = 'iad'
+app = "tiktok-bot"
+primary_region = "fra"
 
 [build]
   dockerfile = "Dockerfile"
 
 [[vm]]
-  memory = '1gb'
-  cpu_kind = 'shared'
-  cpus = 1
-  memory_mb = 1024
+  size = "shared-cpu-1x"
+  memory = "256mb"
+  
