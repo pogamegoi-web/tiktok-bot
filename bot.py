@@ -106,8 +106,9 @@ def extract_video_id(url):
     return None
 
 def normalize_audio(input_path, output_path):
-    # loudnorm нормализует громкость до стандартного уровня -14 LUFS
-    cmd = ['ffmpeg', '-y', '-i', input_path, '-af', 'loudnorm=I=-14:TP=-1:LRA=11', '-c:v', 'copy', output_path]
+    # bass=g=5 — усиление басов на 5dB
+    # loudnorm — нормализация громкости до -14 LUFS
+    cmd = ['ffmpeg', '-y', '-i', input_path, '-af', 'bass=g=5,loudnorm=I=-14:TP=-1:LRA=11', '-c:v', 'copy', output_path]
     subprocess.run(cmd, capture_output=True)
 
 def normalize_music_audio(input_path, output_path):
@@ -249,4 +250,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-        
+    
