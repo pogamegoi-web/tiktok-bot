@@ -1,5 +1,3 @@
-
-        
 import os
 import re
 import requests
@@ -74,14 +72,24 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def language_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
     user_id = query.from_user.id
     lang_code = query.data.replace("lang_", "")
+    
+    current_lang = user_languages.get(user_id)
+    if current_lang == lang_code:
+        await query.answer(get_text(user_id, 'lang_set'))
+        return
+    
     user_languages[user_id] = lang_code
-    await query.edit_message_text(
-        get_text(user_id, 'lang_set') + "\n\n" + get_text(user_id, 'welcome'),
-        reply_markup=get_language_keyboard()
-    )
+    await query.answer(get_text(user_id, 'lang_set'))
+    
+    try:
+        await query.edit_message_text(
+            get_text(user_id, 'lang_set') + "\n\n" + get_text(user_id, 'welcome'),
+            reply_markup=get_language_keyboard()
+        )
+    except Exception:
+        pass
 
 def extract_video_id(url):
     patterns = [
@@ -127,7 +135,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     try:
         video_id = extract_video_id(url)
-        api_url = f"https://www.tikwm.com/api/?url={url}"
+        api_url = f"https://www.tikwm.com/api/?url={url}&hd=1"
         response = requests.get(api_url, timeout=30)
         data = response.json()
         
@@ -182,7 +190,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 os.unlink(tmp_in_path)
                 os.unlink(tmp_out_path)
         else:
-            video_url = video_data.get('hdplay') or video_data.get('play')
+            # Приоритет: HD без водяного знака -> HD -> обычное
+            video_url = video_data.get('hdplay') or video_data.get('wmplay') or video_data.get('play')
             
             if video_url:
                 with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as tmp_in:
