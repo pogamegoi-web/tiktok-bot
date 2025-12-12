@@ -105,12 +105,13 @@ def extract_video_id(url):
             return match.group(1)
     return None
 
-def boost_audio(input_path, output_path):
-    cmd = ['ffmpeg', '-y', '-i', input_path, '-af', 'volume=2.3', '-c:v', 'copy', output_path]
+def normalize_audio(input_path, output_path):
+    # loudnorm нормализует громкость до стандартного уровня -14 LUFS
+    cmd = ['ffmpeg', '-y', '-i', input_path, '-af', 'loudnorm=I=-14:TP=-1:LRA=11', '-c:v', 'copy', output_path]
     subprocess.run(cmd, capture_output=True)
 
-def boost_music_audio(input_path, output_path):
-    cmd = ['ffmpeg', '-y', '-i', input_path, '-af', 'volume=1.9', output_path]
+def normalize_music_audio(input_path, output_path):
+    cmd = ['ffmpeg', '-y', '-i', input_path, '-af', 'loudnorm=I=-14:TP=-1:LRA=11', output_path]
     subprocess.run(cmd, capture_output=True)
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -182,7 +183,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     tmp_in_path = tmp_in.name
                 
                 tmp_out_path = tmp_in_path.replace('.mp3', '_boosted.mp3')
-                boost_music_audio(tmp_in_path, tmp_out_path)
+                normalize_music_audio(tmp_in_path, tmp_out_path)
                 
                 with open(tmp_out_path, 'rb') as audio_file:
                     await chat.send_audio(audio=audio_file, caption=caption)
@@ -200,7 +201,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     tmp_in_path = tmp_in.name
                 
                 tmp_out_path = tmp_in_path.replace('.mp4', '_boosted.mp4')
-                boost_audio(tmp_in_path, tmp_out_path)
+                normalize_audio(tmp_in_path, tmp_out_path)
                 
                 await loading_msg.delete()
                 
@@ -217,7 +218,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         tmp_in_path = tmp_in.name
                     
                     tmp_out_path = tmp_in_path.replace('.mp3', '_boosted.mp3')
-                    boost_music_audio(tmp_in_path, tmp_out_path)
+                    normalize_music_audio(tmp_in_path, tmp_out_path)
                     
                     with open(tmp_out_path, 'rb') as audio_file:
                         await chat.send_audio(audio=audio_file, caption=caption)
