@@ -111,6 +111,11 @@ def normalize_audio(input_path, output_path):
     cmd = ['ffmpeg', '-y', '-i', input_path, '-af', 'bass=g=5,loudnorm=I=-14:TP=-1:LRA=11', '-c:v', 'copy', output_path]
     subprocess.run(cmd, capture_output=True)
 
+def normalize_story_audio(input_path, output_path):
+    # Для историй — более агрессивное усиление
+    cmd = ['ffmpeg', '-y', '-i', input_path, '-af', 'bass=g=6,loudnorm=I=-10:TP=-1:LRA=11,volume=1.5', '-c:v', 'copy', output_path]
+    subprocess.run(cmd, capture_output=True)
+
 def normalize_music_audio(input_path, output_path):
     cmd = ['ffmpeg', '-y', '-i', input_path, '-af', 'loudnorm=I=-14:TP=-1:LRA=11', output_path]
     subprocess.run(cmd, capture_output=True)
@@ -237,6 +242,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pass
         await chat.send_message(f"{get_text(user_id, 'error')}: {str(e)}")
 
+async def error_handler(update, context):
+    # Игнорируем сетевые ошибки — бот сам переподключится
+    pass
+
 def main():
     request = HTTPXRequest(read_timeout=60, write_timeout=60, connect_timeout=30)
     application = Application.builder().token(BOT_TOKEN).request(request).build()
@@ -244,10 +253,11 @@ def main():
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CallbackQueryHandler(language_callback, pattern="^lang_"))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    application.add_error_handler(error_handler)
     
     print("Bot started...")
     application.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     main()
-    
+                
